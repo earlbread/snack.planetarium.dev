@@ -1,0 +1,655 @@
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><title>Planetarium Engineering Snack</title><link rel="self" href="https://snack.planetarium.dev/eng/index.xml"/><link rel="alternate" href="https://snack.planetarium.dev/eng/" title="Planetarium Engineering Snack"/><link rel="alternate" href="https://snack.planetarium.dev/kor/" hreflang="ko" title="플라네타리움 엔지니어링 스낵"/><updated>2019-10-04T00:00:00&#43;00:00</updated><id>https://snack.planetarium.dev/eng/</id><entry><title>Libplanet 0.6 Released</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/10/libplanet-0.6/" title="Libplanet 0.6 Released"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/10/libplanet-0.6/" hreflang="ko" title="Libplanet 0.6 릴리스"/><id>https://snack.planetarium.dev/eng/2019/10/libplanet-0.6/</id><published>2019-10-04T00:00:00&#43;00:00</published><updated>2019-10-04T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello everyone, our team has released the 6th minor version of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.6.0&#34;&gt;Version 0.6&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as P2P communication and data synchronization when creating online multiplayer games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;In version 0.6 there are significant changes to Libplanet&amp;rsquo;s network configuration, and many bugs are fixed that had not been found before. In this article we will cover those key changes of Version 0.6.&lt;/p&gt;
+&lt;h2 id=&#34;kademlia-distributed-hash-table-applied&#34;&gt;Kademlia Distributed Hash Table Applied&lt;/h2&gt;
+&lt;p&gt;In the traditional Libplanet, each peer managed all other peers on the network. Due to the nature of blockchain that transmits every data created, this method manages to work when only a handful of peers are connected to the network, but when the number of peers increase, network communication problem occurs.&lt;/p&gt;
+&lt;p&gt;To address this issue, Kademlia protocol, one of the distributed hash table techniques, has been applied to manage more peers in a network. If you are curious about the operation of Kademlia distributed hash table, please refer to &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/eng/2019/09/kademlia/&#34;&gt;Applying Kademlia Distributed Hash Table to Libplanet&lt;/a&gt;&lt;/cite&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;transaction-transmission-method-changed&#34;&gt;Transaction Transmission Method Changed&lt;/h2&gt;
+&lt;p&gt;When a client creates a transaction, it transmits that data to peers on its routing table, which then synchronizes all peers on the blockchain network.&lt;/p&gt;
+&lt;p&gt;The traditional Libplanet worked by transmitting transaction data at regular intervals, and since each peer had a list of all other peers on a network, the entire network was synchronized with one wave. However, with Kademlia distributed hash table applied, a single wave alone could not guarantee synchronization of the entire network. Because each peer re-transmits data it receives from another peer at an interval until the whole network is synchronized, there’s certainly a possibility that the process will take much longer time than we’d like.&lt;/p&gt;
+&lt;p&gt;Therefore, from this version, we’ve modified the logic to transmit transaction immediately when transmission begins, preventing long delays in the network synchronization process.&lt;/p&gt;
+&lt;h2 id=&#34;ensuring-transaction-order-within-a-block&#34;&gt;Ensuring Transaction Order within a Block&lt;/h2&gt;
+&lt;p&gt;When multiple transactions are included within a block, we must ensure that all clients run the actions in the same order. At the same time, the order of execution must not be predictable until the blocks are mined.&lt;/p&gt;
+&lt;p&gt;In order to meet the above conditions, this update allows all clients to run actions in the same order by utilizing the block&amp;rsquo;s &lt;code&gt;Hash&lt;/code&gt; value and the transaction&amp;rsquo;s &lt;code&gt;Id&lt;/code&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;asynchronous-block-mining&#34;&gt;Asynchronous Block Mining&lt;/h2&gt;
+&lt;p&gt;Since Libplanet works based on a &lt;a href=&#34;https://en.wikipedia.org/wiki/Proof_of_work&#34;&gt;Proof of Work&lt;/a&gt; system, it uses a lot of CPU resources during block mining process. In the previous version, because &lt;code&gt;Hashcash.Answer()&lt;/code&gt; which looks for &lt;code&gt;Nonce&lt;/code&gt; in a block was a synchronous function, the running thread was blocked and it was difficult to abort operation.&lt;/p&gt;
+&lt;p&gt;From this version, &lt;code&gt;BlockChain&amp;lt;T&amp;gt;.Mine()&lt;/code&gt; is an asynchronous function, meaning users can abort operation at a desired time by using &lt;code&gt;CancellationToken&lt;/code&gt;. Also, when blockchain tip changes during mining, &lt;code&gt;Blockchain &amp;lt;T&amp;gt;.TipChanged&lt;/code&gt; event, which can be subscribed externally, will be called and the mining process will halt when that event occurs.&lt;/p&gt;
+&lt;h2 id=&#34;furthermore&#34;&gt;Furthermore&lt;/h2&gt;
+&lt;p&gt;You can learn more about additional changes in our &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.6.0&#34;&gt;release notes&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;And as always, if you have any questions about the new release or Libplanet in general, please visit our &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;Discord chatroom&lt;/a&gt; and let’s chat!&lt;/p&gt;</content><author><name>Chanhyuck Ko</name><uri>https://github.com/limebell</uri><email>lime@planetariumhq.com</email></author></entry><entry><title>Applying Kademlia Distributed Hash Table to Libplanet</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/kademlia/" title="Applying Kademlia Distributed Hash Table to Libplanet"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/kademlia/" hreflang="ko" title="Kademlia 분산 해시 테이블 적용기"/><id>https://snack.planetarium.dev/eng/2019/09/kademlia/</id><published>2019-09-27T00:00:00&#43;00:00</published><updated>2019-09-27T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Chanhyuck Ko of Planetarium Dev Team. In this post, I&amp;rsquo;m going to take some time to briefly explain what &lt;a href=&#34;https://en.wikipedia.org/wiki/Kademlia&#34;&gt;Kademlia&lt;/a&gt; is, one of the &lt;a href=&#34;https://en.wikipedia.org/wiki/Distributed_hash_table&#34;&gt;distributed hash table&lt;/a&gt; techniques for efficiently configuring distributed P2P networks, and why it was applied to our project, &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;what-is-kademlia&#34;&gt;What is Kademlia?&lt;/h2&gt;
+&lt;p&gt;Distributed Hash Tables (DHT) store and manage data across nodes on a network. When locating data on a network, they play a major role in reducing each node’s load by finding the node that has that data first and then asking for a value.&lt;/p&gt;
+&lt;p&gt;Various DHT implementations store nodes in their own routing tables in different ways. So how does Kademlia implement a distributed hash table? Let me give you a quick example. Let&amp;rsquo;s go back to 2008 and talk about Kim, a Korean American who lives in Los Angeles. He is visiting Korea to see his friend after a long time, and just got off at Incheon International Airport.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;I’d like to go to my friend&amp;rsquo;s house, but I don&amp;rsquo;t know where it is.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Gee, I think Kim is lost. In 2019, he would have taken out his smartphone and entered the address, but in 2008, he doesn’t have one because it’s not yet popular. Kim takes a closer look at the only information, the address.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;1-91 Sejong-ro (street), Jongno-gu (district), Seoul (city)&lt;/em&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Without much choice, Kim first heads to Seoul city. And there, he goes up to people and asks them for directions, but not many know where the address is exactly. So, Kim changes his strategy and starts asking how to get to Jongno-gu. There are quite a few people who knows Jongno-gu, and after many twists and turns, Kim arrives at Jongno-gu. Now it&amp;rsquo;s time to ask about Sejong-ro!&lt;/p&gt;
+&lt;p&gt;Although Kim didn&amp;rsquo;t know the exact location of the address, he gradually narrowed it down and eventually reached his friend&amp;rsquo;s house. Similar to Kim’s example, each peer on a Kademlia network also maintains and searches for peer information.&lt;/p&gt;
+&lt;p&gt;Peers of a network have virtual addresses. It&amp;rsquo;s not a geographical address like &lt;em&gt;&amp;ldquo;1-91 Sejong-ro, Jongno-gu, Seoul&amp;rdquo;&lt;/em&gt;, but a series of bytes assigned at random or by set rules. As for distance, it’s defined as an &lt;a href=&#34;https://en.wikipedia.org/wiki/Exclusive_or#Computer_science&#34;&gt;exclusive disjunction&lt;/a&gt; of the address values of two peers, rather than the physical distance between the actual peers.&lt;/p&gt;
+&lt;p&gt;Instead of containing information from every peer on the network in their routing tables, peers using Kademlia protocol classify them according to the distance defined above and store only a limited number of peers per distance range. Peers with a distance of at least 2&lt;sup&gt;i&lt;/sup&gt; and up to 2&lt;sup&gt;i+1&lt;/sup&gt; are stored in the i-th row of the routing table. This optional storing of peer information in a routing table allows you to locate peer B by requesting information to a peer that is closest to B that you know, and then repeating this series of request until it leads to B.&lt;/p&gt;
+&lt;h2 id=&#34;reason-for-applying-kademlia&#34;&gt;Reason for Applying Kademlia&lt;/h2&gt;
+&lt;p&gt;To configure a P2P network that communicates without a server, communication between all peers must be guaranteed. But not all peers have to be directly connected to each other. Take a look at these three peers- A, B and C.&lt;/p&gt;
+&lt;p&gt;In a traditional Libplanet, we built a network like this. It was a configuration in which all the peers were connected.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;1.png&#34;
+alt=&#34;All the peers are connected to each other.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;All the peers are connected to each other.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;This is not a big deal when the network is small, but if you have, say 1,000 peers, or 10,000 peers, it&amp;rsquo;s a lot of pressure every time you send that message to the network.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;2.png&#34;
+alt=&#34;Peers overloaded with excessive transmission.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Peers overloaded with excessive transmission.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Using Kademlia, each row of routing tables will consist of peers whose distances are within the same range. When transmitting data, you select and send message to all peers in each row of the routing table, and those peers will do the same for all peers in their own tables. Eventually, every peer on the network will be able to receive the message. In this way, when N peers are on the network, one peer will only send a message log(N) times, preventing the network load from being concentrated on one peer.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;3.png&#34;
+alt=&#34;A Network transmitting messages.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;A Network transmitting messages.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;to-conclude&#34;&gt;To Conclude&lt;/h2&gt;
+&lt;p&gt;In order to give users a sense that their actions are processing fast, you need to frequently create blocks of transactions that contain those actions. But the more frequently a block is created, the more network load a miner will receive. To ensure a stable network as its size grows, distributed hash tables had to be applied to Libplanet. In return, we were able to run a test and see that the network load on a single peer was reduced in a harsher setting.&lt;/p&gt;
+&lt;p&gt;If you have any questions about Kademlia distributed hash table or Libplanet, please visit our [Discord chatroom] and let’s chat!&lt;/p&gt;</content><author><name>Chanhyuck Ko</name><uri>https://github.com/limebell</uri><email>lime@planetariumhq.com</email></author></entry><entry><title>Join Us for Hacktoberfest!</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/hacktoberfest/" title="Join Us for Hacktoberfest!"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/hacktoberfest/" hreflang="ko" title="저희와 함께 Hacktoberfest에 참가해봅시다!"/><id>https://snack.planetarium.dev/eng/2019/09/hacktoberfest/</id><published>2019-09-26T00:00:00&#43;00:00</published><updated>2019-09-26T00:00:00&#43;00:00</updated><content type="html">
+&lt;div style=&#34;display: block; margin: auto; margin-top: 30px; width: 500px;&#34;&gt;&lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;&lt;img src=&#34;_hacktoberfest.png&#34; width=&#34;500&#34;&gt;&lt;/a&gt;&lt;/div&gt;
+&lt;p&gt;Greetings All! The month of Hacktoberfest has finally arrived.&lt;/p&gt;
+&lt;p&gt;Is this your first time hearing about &lt;dfn&gt;&lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;Hacktoberfest&lt;/a&gt;&lt;/dfn&gt;? Hacktoberfest is an open source event that lasts for a month from October 1st to 31st. The event is open to everyone around the world and all you have to do is participate anytime within October and submit 4 pull requests to the Github Public Repository.&lt;/p&gt;
+&lt;p&gt;Send 4 pull requests and you&amp;rsquo;ll get either a T-shirt or a sticker from the event host like DigitalOcean.   And we’re happy to announce that Project &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet&lt;/a&gt; is also participating in the event this year!&lt;/p&gt;
+&lt;h2 id=&#34;so-how-do-we-get-started&#34;&gt;So How Do We Get Started?&lt;/h2&gt;
+&lt;p&gt;If you’d like to participate in Hacktoberfest, but just don’t know what to contribute to and send a pull request, you’re in luck.  
+We’ve put up &lt;q&gt;&lt;em&gt;hacktoberfest&lt;/em&gt;&lt;/q&gt; labels on issues that are great for new contributors trying to participate in Hacktoberfest. So, you can pick the issues with the &lt;q&gt;hacktoberfest&lt;/q&gt; label that you’d like to work on and leave a comment saying you&amp;rsquo;re starting your work. Please take a look at the issues tracker of our projects—&lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet Explorer&lt;/a&gt;, and &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet Explorer Frontend&lt;/a&gt;. &lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;hacktoberfest-issues.png&#34;
+alt=&#34;Issues labeled hacktoberfest&#34; width=&#34;500&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Issues labeled &lt;q&gt;hacktoberfest&lt;/q&gt;&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Once you get started, you&amp;rsquo;ll be talking to other open source contributors through comments and chat. If it’s your first time participating in an open source project, maintainers and other contributors will help so don’t worry.&lt;/p&gt;
+&lt;p&gt;For more information on goods and others, please visit the &lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;Hacktoberfest Official Site&lt;/a&gt;. &lt;/p&gt;
+&lt;h2 id=&#34;questions-and-conversations&#34;&gt;Questions and Conversations&lt;/h2&gt;
+&lt;p&gt;If you have any questions or difficulties while contributing to Hacktoberfest, we can certainly talk in the comments. But we hope you can come to our &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;Discord chatroom&lt;/a&gt; where it’s much easier to communicate! And of course, you are always welcome well beyond Hacktoberfest.&lt;/p&gt;</content><author><name>Lee Dogeon</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.5 Released</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/libplanet-0.5/" title="Libplanet 0.5 Released"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/libplanet-0.5/" hreflang="ko" title="Libplanet 0.5 릴리스"/><id>https://snack.planetarium.dev/eng/2019/09/libplanet-0.5/</id><published>2019-09-06T00:00:00&#43;00:00</published><updated>2019-09-06T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello all, we’re delighted to announce that the 5th minor version of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;—&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.0&#34;&gt;Version 0.5&lt;/a&gt; along with patch versions, &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.1&#34;&gt;0.5.1&lt;/a&gt; and &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.2&#34;&gt;0.5.2&lt;/a&gt;, has been released.&lt;/p&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as P2P communication and data synchronization when creating online multiplayer games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;Version 0.5 includes extensive performance and reliability improvements addressed while testing games developed with Libplanet. This post will cover those major changes of Version 0.5.&lt;/p&gt;
+&lt;h2 id=&#34;abbr-title-initial-block-download-ibd-abbr-speed-improvement&#34;&gt;&lt;abbr title=&#34;Initial Block Download&#34;&gt;IBD&lt;/abbr&gt; Speed Improvement&lt;/h2&gt;
+&lt;p&gt;Previously, &lt;a href=&#34;https://bitcoin.org/en/glossary/initial-block-download&#34;&gt;&lt;abbr title=&#34;initial block download&#34;&gt;IBD&lt;/abbr&gt;&lt;/a&gt; used to take a long time to execute, even for a small number of blocks. This was because after downloading the blocks, you had to calculate the final state starting from the first block.&lt;/p&gt;
+&lt;p&gt;However, if you have a reliable node, it is quite possible to effectively reduce computing time by using precalculated results from that node.&lt;/p&gt;
+&lt;p&gt;So, from Version 0.5, by handing over trusted nodes as parameters to &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.Swarm-1.html#Libplanet_Net_Swarm_1_PreloadAsync_System_IProgress_Libplanet_Net_PreloadState__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Threading_CancellationToken_&#34;&gt;&lt;code&gt;Swarm&amp;lt;T&amp;gt;.PreloadAsync()&lt;/code&gt;&lt;/a&gt;, we’re now able to receive, store, and use the most recent state values already computed from those trusted nodes.&lt;/p&gt;
+&lt;p&gt;If there aren’t any trusted nodes or the process fails for another reason, IBD computes in the same process as previous versions.&lt;/p&gt;
+&lt;h2 id=&#34;irandom-nextdouble-removed&#34;&gt;&lt;code&gt;IRandom.NextDouble()&lt;/code&gt; Removed&lt;/h2&gt;
+&lt;p&gt;Quoting from the &lt;a href=&#34;https://docs.microsoft.com/en-us/dotnet/api/system.double?view=netstandard-2.0#remarks&#34;&gt;System.Double section of .NET Standard Official Document&lt;/a&gt;, it states:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;In addition, the result of arithmetic and assignment operations with &lt;code&gt;Double&lt;/code&gt; values may differ slightly by platform because of the loss of precision of the &lt;code&gt;Double&lt;/code&gt; type. For example, the result of assigning a literal &lt;code&gt;Double&lt;/code&gt; value may differ in the 32-bit and 64-bit versions of the .NET Framework.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;As stated above, arithmetic operations and substitution of Double can cause indeterminant results. Because of this, we’ve decided not to provide &lt;a href=&#34;https://github.com/planetarium/libplanet/pull/419&#34;&gt;&lt;code&gt;IRandom.NextDouble()&lt;/code&gt;&lt;/a&gt; from this version onwards.&lt;/p&gt;
+&lt;p&gt;Please refer to &lt;a href=&#34;https://randomascii.wordpress.com/2013/07/16/floating-point-determinism/&#34;&gt;this article&lt;/a&gt; for further information.&lt;/p&gt;
+&lt;h2 id=&#34;block-action&#34;&gt;Block Action&lt;/h2&gt;
+&lt;p&gt;In order to keep chains secure, we need miners to mine the blocks, and we need to reward miners to recruit and keep them.&lt;/p&gt;
+&lt;p&gt;Previously for miners to be rewarded, they had to add a transaction with reward actions to the block each time. But from this version, the new &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Blockchain.Policies.IBlockPolicy-1.html#Libplanet_Blockchain_Policies_IBlockPolicy_1_BlockAction&#34;&gt;&lt;code&gt;IBlockPolicy&amp;lt;T&amp;gt;.BlockAction&lt;/code&gt;&lt;/a&gt; property, which is executed for every block, enables code implementation that rewards miners for each block action.&lt;/p&gt;
+&lt;h2 id=&#34;filestore-removed&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt; Removed&lt;/h2&gt;
+&lt;p&gt;Libplanet had been providing an interface called &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Store.IStore.html&#34;&gt;&lt;code&gt;IStore&lt;/code&gt;&lt;/a&gt;, &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.FileStore.html&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt;&lt;/a&gt; (a file-based implementation of &lt;code&gt;IStore&lt;/code&gt;), as well as &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Store.LiteDBStore.html&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt;&lt;/a&gt; (implementation based on &lt;a href=&#34;https://www.litedb.org/&#34;&gt;LiteDB&lt;/a&gt;) since Version &lt;a href=&#34;https://snack.planetarium.dev/eng/2019/07/libplanet-0.4/&#34;&gt;0.4&lt;/a&gt; to simplify the storage layer. Despite the benefits of its simplistic implementation, however, &lt;code&gt;FileStore&lt;/code&gt; also had the following limitations:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;There were just too many files created because every block, every transaction, and the status of every account block were stored as separate files.&lt;/li&gt;
+&lt;li&gt;With no separate cache or buffer, I/O performance was significantly affected by what physical storage device were used.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;As we started using LiteDB, &lt;code&gt;FileStore&lt;/code&gt; usage rate began to diminish. And so, considering the difficulty of continuously managing &lt;code&gt;FileStore&lt;/code&gt;, we decided not to provide &lt;code&gt;FileStore&lt;/code&gt; implementation from Version 0.5.&lt;/p&gt;
+&lt;h2 id=&#34;more-detailed-preload-progress&#34;&gt;More Detailed Preload Progress&lt;/h2&gt;
+&lt;p&gt;To carry out the IBD mentioned above, you can call the &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.Swarm-1.html#Libplanet_Net_Swarm_1_PreloadAsync_System_IProgress_Libplanet_Net_PreloadState__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Threading_CancellationToken_&#34;&gt;&lt;code&gt;Swarm&amp;lt;T&amp;gt;.PreloadAsync()&lt;/code&gt;&lt;/a&gt; method. And previously, sending &lt;code&gt;IProgress&amp;lt;BlockDownloadState&amp;gt;&lt;/code&gt; to this method’s parameter could tell us about the progress of the block download, but it couldn’t tell us about the specific progress from running actions to the final status after the block download (or from a trusted node).&lt;/p&gt;
+&lt;p&gt;Therefore, the waiting time of this previous method had to be quite boring for players since the loading message only showed either &lt;q&gt;loading&lt;/q&gt; or &lt;q&gt;100%&lt;/q&gt; and no specific progress of the block download.&lt;/p&gt;
+&lt;p&gt;However, from Version 0.5, by receiving the &lt;code&gt;IProgress&amp;lt;PreloadState&amp;gt;&lt;/code&gt; type parameter instead of &lt;code&gt;IProgress&amp;lt;BlockDownloadState&amp;gt;&lt;/code&gt;, this allows us to get a detailed view of the entire preload progress.&lt;/p&gt;
+&lt;p&gt;Through &lt;code&gt;IProgress&amp;lt;PreloadState&amp;gt;&lt;/code&gt; object which receives &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.BlockDownloadState.html&#34;&gt;&lt;code&gt;BlockDownloadState&lt;/code&gt;&lt;/a&gt;, &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.BlockStateDownloadState.html&#34;&gt;&lt;code&gt;BlockStateDownloadState&lt;/code&gt;&lt;/a&gt;, &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.StateReferenceDownloadState.html&#34;&gt;&lt;code&gt;StateReferenceDownloadState&lt;/code&gt;&lt;/a&gt; and &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.ActionExecutionState.html&#34;&gt;&lt;code&gt;ActionExecutionState&lt;/code&gt;&lt;/a&gt; as parameters inherited from &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.PreloadState.html&#34;&gt;&lt;code&gt;PreloadState&lt;/code&gt;&lt;/a&gt;, users are provided with more detailed information.&lt;/p&gt;
+&lt;h2 id=&#34;furthermore&#34;&gt;Furthermore&lt;/h2&gt;
+&lt;p&gt;You can learn more about additional changes in our &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.0&#34;&gt;0.5.0&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.1&#34;&gt;0.5.1&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.2&#34;&gt;0.5.2&lt;/a&gt; release notes.&lt;/p&gt;
+&lt;p&gt;And as always, if you have any questions about the new release or Libplanet in general, please visit our &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;Discord chatroom&lt;/a&gt; and let’s chat!&lt;/p&gt;</content><author><name>Lee Dogeon</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>Libplanet at PyCon 2019 Sprint</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/08/pycon-sprint-2019/" title="Libplanet at PyCon 2019 Sprint"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/08/pycon-sprint-2019/" hreflang="ko" title="파이콘 스프린트에 다녀오다"/><id>https://snack.planetarium.dev/eng/2019/08/pycon-sprint-2019/</id><published>2019-08-21T00:00:00&#43;00:00</published><updated>2019-08-21T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Lee Dogeon, &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt; committer at Planetarium!&lt;/p&gt;
+&lt;p&gt;This past August 15th and 16th, our team participated at &lt;a href=&#34;https://www.pycon.kr/program/sprint?lang=en-US&#34;&gt;PyCon 2019 Sprint&lt;/a&gt; as leader of Project &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt;. In this article, I&amp;rsquo;d like to briefly talk about the contributions we received at PyCon Sprint.&lt;/p&gt;
+&lt;h2 id=&#34;contributions-at-pycon-2019-sprint&#34;&gt;Contributions at PyCon 2019 Sprint&lt;/h2&gt;
+&lt;p&gt;Thanks to all our participants at the Sprint, many features were added to &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt;, as well as &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt; and &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer Frontend&lt;/a&gt;!&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt; is a project that helps you search blocks created in games developed with Libplanet through &lt;a href=&#34;https://graphql.org/&#34;&gt;GraphQL&lt;/a&gt;, and &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer Frontend&lt;/a&gt; is a TypeScript + React project to make Libplanet Explorer easier to see in your browser.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./balloon.jpg&#34; alt=&#34;balloon&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;The PyCon Organizing Team awarded us a balloon whenever we send a &lt;abbr title=&#34;pull request&#34;&gt;PR&lt;/abbr&gt; and so I&amp;rsquo;d like to share some of the PR&amp;rsquo;s that helped us receive a bunch of these balloons at the event!&lt;/p&gt;
+&lt;h3 id=&#34;suspicious-activity-in-the-number-of-blocks-downloaded&#34;&gt;Suspicious Activity in the Number of Blocks Downloaded&lt;/h3&gt;
+&lt;p&gt;When a node (A) receives a query from another node (B) about a block’s content that the node (B) doesn&amp;rsquo;t have, it (A) divides the block into a certain number and passes the block hash to the node (B) that sent the query.&lt;/p&gt;
+&lt;p&gt;But there was a problem in this process in which apart from the first response, the number of block hash received was one less than the expected amount. Contributor &lt;a href=&#34;https://github.com/gurrpi&#34;&gt;Daehyun Paik&lt;/a&gt; set off on a quest to solve this problem.&lt;/p&gt;
+&lt;p&gt;And thanks to his contribution, we now can send and receive block hashes in the right amount.&lt;/p&gt;
+&lt;h3 id=&#34;hiding-empty-blocks&#34;&gt;Hiding Empty Blocks!&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt; only accepts the longest chain as &lt;a href=&#34;https://en.bitcoin.it/wiki/Proof_of_work&#34;&gt;Proof of Work&lt;/a&gt;, so it constantly creates blocks even if there aren’t any transaction. But when searching for transactions rather than the block itself, the query results are mixed with empty blocks, making the process quite cumbersome.&lt;/p&gt;
+&lt;p&gt;Since the blocks we&amp;rsquo;re interested in are mainly those with transactions, contributor &lt;a href=&#34;https://github.com/hyeguiee&#34;&gt;Ha Hyemi&lt;/a&gt; added another option to Libplanet through her contribution!&lt;/p&gt;
+&lt;p&gt;Now we have an option to only see the blocks with transactions.&lt;/p&gt;
+&lt;h3 id=&#34;frontend-docking&#34;&gt;Frontend Docking!&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&#34;https://docker.io/&#34;&gt;Docker&lt;/a&gt; is a tool that make it easy to create, deploy, and run applications using containers.&lt;/p&gt;
+&lt;p&gt;Contributor &lt;a href=&#34;https://github.com/minhoryang&#34;&gt;Minho Ryang&lt;/a&gt; helped us create a docker file for &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer Frontend&lt;/a&gt;, providing us with an environment in which we can easily distribute Libplanet Explorer anywhere or run it locally.&lt;/p&gt;
+&lt;h3 id=&#34;frontend-changes&#34;&gt;Frontend Changes!&lt;/h3&gt;
+&lt;p&gt;Due to changes in &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt; or for independent reasons, several features have been added to the frontend of Libplanet Explorer.&lt;/p&gt;
+&lt;p&gt;Thanks to contributions by &lt;a href=&#34;https://github.com/AiOO&#34;&gt;Ahn Kiwook&lt;/a&gt;, &lt;a href=&#34;https://github.com/kanghyojun&#34;&gt;Kang Hyojun&lt;/a&gt;, and &lt;a href=&#34;https://github.com/aucch&#34;&gt;aucch&lt;/a&gt;, we now have options to filter blocks without transactions and we can also show block creation times as well as average difficulty!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./frontend-screenshot.png&#34; alt=&#34;frontend-screeshot&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;We now also have a separate transaction page to review details of each transaction!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./frontend-screenshot-transaction.png&#34; alt=&#34;frontend-screenshot&#34; /&gt;&lt;/p&gt;
+&lt;h2 id=&#34;contributions-are-always-welcome&#34;&gt;Contributions Are Always Welcome!&lt;/h2&gt;
+&lt;p&gt;Sprint or not, questions or contributions to Project Libplanet are welcome any time! We invite you all to visit our &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;GitHub repository&lt;/a&gt; and leave comments on the issue or join &lt;a href=&#34;https://discord.gg/wUgwkYW&#34;&gt;our Discord server&lt;/a&gt; and ask us directly.&lt;/p&gt;</content><author><name>Lee Dogeon</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>Experiencing Unity Test Runner</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/07/unity-test-runner/" title="Experiencing Unity Test Runner"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/07/unity-test-runner/" hreflang="ko" title="Unity 테스트 러너 도입기"/><id>https://snack.planetarium.dev/eng/2019/07/unity-test-runner/</id><published>2019-07-12T00:00:00&#43;00:00</published><updated>2019-07-12T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Yang Chunung, game developer at Planetarium. Today I&amp;rsquo;m here to talk about my experience using the &lt;a href=&#34;https://docs.unity3d.com/Manual/testing-editortestsrunner.html&#34;&gt;Unity Test Runner&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;before-i-start&#34;&gt;Before I Start&lt;/h2&gt;
+&lt;p&gt;I am currently developing blockchain games using &lt;a href=&#34;https://github.com/planetarium/libplanet.net&#34;&gt;Libplanet&lt;/a&gt; and Unity. After joining the team and learning that we’d be developing games with Unity, I had this rather unfounded confidence thinking, “I’ve had plenty of GUI programming experience, so how hard could it be?” (note: I had no prior experience with Unity).&lt;/p&gt;
+&lt;p&gt;Obviously, my lacking Unity experience led me to give up testing when I first started the project, but as time went on, the need for testing grew and that’s when I found the Unity Test Runner.&lt;/p&gt;
+&lt;p&gt;The Unity Test Runner is a built-in test tool provided by Unity. After creating a &lt;a href=&#34;https://nunit.org/&#34;&gt;NUnit&lt;/a&gt;-based test, you can run the test in Unity Editor by building a testing environment&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; in both Play Mode and Edit Mode.&lt;/p&gt;
+&lt;h2 id=&#34;assembly-definition-files&#34;&gt;Assembly Definition Files&lt;/h2&gt;
+&lt;p&gt;After making a test script using the documents, I ran into a problem. While other libraries were recognized without any issue, the test script couldn’t recognize the namespace of the actual game code that I wanted to test. The reason was that unlike &lt;em&gt;Assembly-CSharp.dll&lt;/em&gt;, which is automatically recognized in Unity editor, the game project script couldn’t be recognized within the test script. &lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;tests-asmdef.png&#34;
+alt=&#34;Adding Dependencies on Tests.asmdef&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Adding Dependencies on &lt;em&gt;Tests.asmdef&lt;/em&gt;&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Creating an assembly definition file that defines a project script and then adding dependencies to the assembly definition file&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34;&gt;2&lt;/a&gt;&lt;/sup&gt; defined for testing will solve the problem.&lt;/p&gt;
+&lt;p&gt;Please refer to the &lt;a href=&#34;https://docs.unity3d.com/2018.3/Documentation/Manual/ScriptCompilationAssemblyDefinitionFiles.html&#34;&gt;relevant documentation&lt;/a&gt; for more information.&lt;/p&gt;
+&lt;h2 id=&#34;platform-settings-for-assembly-definition-files&#34;&gt;Platform Settings for Assembly Definition Files&lt;/h2&gt;
+&lt;p&gt;Even after creating the assembly definition file, the third-party library that works well in the editor broke down when building due to recognition failure.
+This problem was caused by the assembly definition file trying to include the extended editor features sometimes provided in libraries within the build.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;unity-platform.png&#34;
+alt=&#34;Check only Editor&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Check only Editor&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;The solution is quite simple: create a separate editor definition file inside that library’s &lt;em&gt;Editor&lt;/em&gt; folder and change the &lt;em&gt;Include Platforms&lt;/em&gt; setting to only &lt;em&gt;Editor&lt;/em&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;running-the-test&#34;&gt;Running the Test&lt;/h2&gt;
+&lt;p&gt;When ready, create the test and run it in the editor. Results can be viewed directly from the Test Runner window. &lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;test-result.png&#34;
+alt=&#34;Test Results&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Test Results&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Although there are still more codes in the current project that have not been tested, since the Unity Test Runner has been applied, we&amp;rsquo;ve been writing tests together for bug fixes and new add-ons, which has saved us a lot of time in checking production and logic &amp;mdash; something we used to check by running the game every time.
+For other projects that also use Unity, I confidently recommend that you apply the Unity Test Runner to increase productivity and enhance overall project experience. Thank you!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;Unity player built for that platform can automatically build and run Play Mode Testing on its own.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:2&#34;&gt;If you didn’t do a separate setting when creating the test runner in the editor, it will be created as &lt;em&gt;Assets/Tests/Test.asmdef&lt;/em&gt;.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:2&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>Yang ChunUng</name><uri>https://github.com/ipdae</uri><email>yang@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.4 Released</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/07/libplanet-0.4/" title="Libplanet 0.4 Released"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/07/libplanet-0.4/" hreflang="ko" title="Libplanet 0.4 릴리스"/><id>https://snack.planetarium.dev/eng/2019/07/libplanet-0.4/</id><published>2019-07-10T00:00:00&#43;00:00</published><updated>2019-07-10T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello everyone, we are happy to announce that the fourth minor version of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;—&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.4.0&#34;&gt;Version 0.4&lt;/a&gt;, has been released.&lt;/p&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as P2P communication and data synchronization when creating online multiplayer games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;This post will cover key changes in Version 0.4.&lt;/p&gt;
+&lt;h2 id=&#34;litedbstore-added&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt; Added&lt;/h2&gt;
+&lt;p&gt;To simplify the storage layer, Libplanet provides a built-in interface called &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.IStore.html&#34;&gt;&lt;code&gt;IStore&lt;/code&gt;&lt;/a&gt; and a file-based class called &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.FileStore.html&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt;&lt;/a&gt;. The &lt;code&gt;FileStore&lt;/code&gt; was enough for a small game, but when we applied it to a larger one, we found the following problems:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Because all the blocks, their status, transactions, and account addresses, were stored as separate files, there were just too many of them.&lt;/li&gt;
+&lt;li&gt;I/O performance was reduced because there were no separate cache or buffers.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;To address these issues, we reviewed the need for an &lt;code&gt;IStore&lt;/code&gt; implementation using a separate storage engine, and in this process we chose &lt;a href=&#34;https://www.litedb.org/&#34;&gt;LiteDB&lt;/a&gt;. Written purely in C#, LiteDB is easy to manage because it&amp;rsquo;s highly portable in a .NET environment and it allows you to manage your entire data in a single file.&lt;/p&gt;
+&lt;p&gt;Since the newly added &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.LiteDBStore.html&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt;&lt;/a&gt; implements &lt;code&gt;IStore&lt;/code&gt;, besides the object initialization method in the previous &lt;code&gt;FileStore&lt;/code&gt;, it can be used in exactly the same way.&lt;/p&gt;
+&lt;h2 id=&#34;easy-transaction-creation&#34;&gt;Easy Transaction Creation&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_Nonce&#34;&gt;&lt;code&gt;Transaction&amp;lt;T&amp;gt;.Nonce&lt;/code&gt;&lt;/a&gt; added on Version 0.3 was an important device for creating secure transactions, but at the same time it was a headache for developers who used Libplanet. This was because in order to make a &lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;, one had to use &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Blockchain.BlockChain-1.html#Libplanet_Blockchain_BlockChain_1_GetNonce_Libplanet_Address_&#34;&gt;&lt;code&gt;BlockChain&amp;lt;T&amp;gt;.GetNonce()&lt;/code&gt;&lt;/a&gt; to get the exact &lt;a href=&#34;https://en.wikipedia.org/wiki/Cryptographic_nonce&#34;&gt;nonce&lt;/a&gt; of the account that’s currently signing and use it. Not only was this process cumbersome, but it also created concurrency problems depending on when transactions were created.&lt;/p&gt;
+&lt;p&gt;But starting from Version 0.4, &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Blockchain.BlockChain-1.html#Libplanet_Blockchain_BlockChain_1_MakeTransaction_Libplanet_Crypto_PrivateKey_System_Collections_Generic_IEnumerable__0__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Nullable_System_DateTimeOffset__System_Boolean_&#34;&gt;&lt;code&gt;BlockChain&amp;lt;T&amp;gt;.MakeTransaction()&lt;/code&gt;&lt;/a&gt; makes it simple and easy to create transactions without worrying about concurrency.&lt;/p&gt;
+&lt;h2 id=&#34;transaction-broadcast-automated&#34;&gt;Transaction Broadcast Automated&lt;/h2&gt;
+&lt;p&gt;In order for games using previous versions of Libplanet to broadcast transactions, &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Net.Swarm.html#Libplanet_Net_Swarm_BroadcastTxs__1_System_Collections_Generic_IEnumerable_Libplanet_Tx_Transaction___0___&#34;&gt;&lt;code&gt;Swarm.BroadcastTxs()&lt;/code&gt;&lt;/a&gt; had to be called directly. And because transaction broadcast could fail due to network failure, the retry logic had to be implemented directly from the game side.&lt;/p&gt;
+&lt;p&gt;(Although &lt;code&gt;.BroadcastTxs()&lt;/code&gt; is still usable) Now, direct implementation isn’t necessary from games. Instead, they can put their own chains when making &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt; and create a transaction (using &lt;code&gt;BlockChain&amp;lt;T&amp;gt;.MakeTransaction()&lt;/code&gt; as introduced above). The rest will be carried out by &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;In this process, since &lt;code&gt;Swarm&lt;/code&gt; now directly manages the chain, it has been modified to &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt;, indicating that it contains a type parameter(&lt;code&gt;T&lt;/code&gt;), just like&lt;code&gt;BlockChain&amp;lt;T&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;furthermore&#34;&gt;Furthermore,&lt;/h2&gt;
+&lt;p&gt;You can learn more about additional changes in &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.4.0&#34;&gt;our release notes&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;And as always, if you have any questions about the new release or Libplanet in general, please visit &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;our Discord chatroom&lt;/a&gt; and let’s chat!&lt;/p&gt;</content><author><name>Swen Mun</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry><entry><title>Unit Testing in Unity Player</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/06/xunit-unity-runner/" title="Unit Testing in Unity Player"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/06/xunit-unity-runner/" hreflang="ko" title="Unity 환경에서 단위 테스트 돌리기"/><id>https://snack.planetarium.dev/eng/2019/06/xunit-unity-runner/</id><published>2019-06-28T00:00:00&#43;00:00</published><updated>2019-06-28T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Hong Minhee, &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt; committer at Planetarium.
+In this post, I want to talk about why we came to a conclusion to run unit tests on Unity too,
+the most widely used game engine, and how we actually approached it.&lt;/p&gt;
+&lt;h2 id=&#34;supporting-different-environments-on-libplanet&#34;&gt;Supporting Different Environments on Libplanet&lt;/h2&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as P2P communication and
+data synchronization when creating online multiplayer games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;Automated tests, especially unit tests, are needed to achieve rapid improvement while minimizing malfunctions
+that are prone to &lt;a href=&#34;https://en.wikipedia.org/wiki/Software_regression&#34;&gt;regressions&lt;/a&gt; or corner cases. Furthermore, Libplanet is a library and because it is
+difficult to determine which operating system and .NET runtime each game or app will use, we need to run all
+tests in as many different environments as possible.&lt;/p&gt;
+&lt;p&gt;So our team had run tests on &lt;a href=&#34;https://dev.azure.com/planetarium/libplanet/_build?definitionId=3&#34;&gt;Azure Pipelines&lt;/a&gt;&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; with (Linux, macOS, Windows) × (.NET Framework, Mono, .NET Core)
+combination&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34;&gt;2&lt;/a&gt;&lt;/sup&gt; whenever a push or a pull request was made in the Libplanet repository.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;before.png&#34;
+alt=&#34;The combination of environments tested on each build&#34; width=&#34;298&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;The combination of environments tested on each build&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;unity-mono&#34;&gt;Unity ≠ Mono&lt;/h2&gt;
+&lt;p&gt;At first, we thought this was enough because Unity uses Mono Runtime. But as we used Libplanet to develop
+our game on Unity, we had to encounter unexpected behaviors in the game several times, and it became increasingly
+evident that just passing the test on Mono was not enough.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/Unity-Technologies/mono&#34;&gt;In fact, the Mono used in Unity seems to be a fairly long-standing downstream, with a lot of patches added
+to the upstream.&lt;/a&gt; And even if they were tested at the exact same Mono runtime, there were a lot
+of special conditions created by Unity Player. For instance, &lt;a href=&#34;https://github.com/zeromq/netmq&#34;&gt;NetMQ&lt;/a&gt;, &lt;a href=&#34;http://zeromq.org/&#34;&gt;ZeroMQ&lt;/a&gt;&amp;rsquo;s C# implementation, had
+numerous library malfunctions due to many complicated things happening inside compared to the simplicity of
+the APIs revealed on the outer layer.&lt;/p&gt;
+&lt;p&gt;All of these considerations led to an agreement that a testing environment for Unity needed to be added to CI
+to ensure reliable functionality.&lt;/p&gt;
+&lt;h2 id=&#34;testing-xunit-net-on-unity&#34;&gt;Testing xUnit.net on Unity&lt;/h2&gt;
+&lt;p&gt;Because there is a unit testing feature available in Unity, we tried to use it at first. Unfortunately, Unity&amp;rsquo;s
+unit testing was done in an Editor environment used by game developers, not in a Player environment, and the
+testing framework supported only &lt;a href=&#34;https://nunit.org/&#34;&gt;NUnit&lt;/a&gt;. We thought about changing all of Libplanet&amp;rsquo;s &lt;a href=&#34;https://xunit.net/&#34;&gt;xUnit.net&lt;/a&gt;-based test
+codes, to NUnit, but with such a high volume of codes to change at once, we didn&amp;rsquo;t want to risk making mistakes
+that are hard to notice.&lt;/p&gt;
+&lt;p&gt;So we decided to create a test runner app instead of a game app with Unity. Fortunately, xUnit.net was well divided
+between APIs for writing tests and APIs for running tests. This is probably due to the diverse frontend plug-ins to
+various IDE, GUI and CLI. In fact, if you search &amp;ldquo;xunit runner&amp;rdquo; on NuGet, you&amp;rsquo;ll get a xUnit.net test runner for a
+variety of environments.&lt;/p&gt;
+&lt;p&gt;A downside is that because there are no API documents, we had to search the source code of xUnit.net and the source
+code of other test runners.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:3&#34;&gt;&lt;a href=&#34;#fn:3&#34;&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;The test runner API on xUnit.net is roughly as follows: First, the client code looks for test classes and the tests
+methods within those classes from the assembly files (&lt;em&gt;.dll&lt;/em&gt;) passed through the input. After, the client code can
+decide which test to run. Then, the test cases are run by the test runner. Because the test discovery and execution
+can be done in parallel for performance, the API follows a typical &lt;a href=&#34;https://en.wikipedia.org/wiki/Inversion_of_control&#34;&gt;&lt;abbr title=&#34;inversion of control&#34;&gt;IoC&lt;/abbr&gt;&lt;/a&gt;
+pattern. An interface called &lt;a href=&#34;https://github.com/xunit/xunit/blob/2.4.1/src/xunit.runner.utility/Messages/IMessageSinkWithTypes.cs&#34;&gt;&lt;code&gt;IMessageSinkWithTypes&lt;/code&gt;&lt;/a&gt;, which receives events such as test
+discovery, start running, failure, success, skip, and so on in the form of a message, must be implemented in the client
+code to show the log on screen when such events occur. Because our team didn&amp;rsquo;t run the tests in parallel, it was quite
+frustrating to have a less liberal API with a lengthy client code. 🙄&lt;/p&gt;
+&lt;h2 id=&#34;building-a-abbr-title-command-line-interface-cli-abbr-with-unity&#34;&gt;Building a &lt;abbr title=&#34;command-line interface&#34;&gt;CLI&lt;/abbr&gt; with Unity&lt;/h2&gt;
+&lt;p&gt;Our greatest concern when creating a Unity test runner was that since this was to be done on
+&lt;abbr title=&#34;continuous integration&#34;&gt;CI&lt;/abbr&gt; in the first place, we believed that the test runner had to be manipulated
+by the &lt;abbr title=&#34;command-line interface&#34;&gt;CLI&lt;/abbr&gt; rather than by the graphics screen, and the results should be
+visible. So with Unity being a platform for making graphic games, we were worried whether it&amp;rsquo;d be a good idea or not to
+actually create a CLI app.&lt;/p&gt;
+&lt;p&gt;Fortunately, we found out that Unity has a &lt;dfn&gt;headless mode&lt;/dfn&gt;, which means that all logs taken in
+&lt;a href=&#34;https://docs.unity3d.com/ScriptReference/Debug.Log.html&#34;&gt;&lt;code&gt;Debug.Log()&lt;/code&gt;&lt;/a&gt; method are output as &lt;a href=&#34;https://en.wikipedia.org/wiki/Standard_streams#Standard_output_(stdout)&#34;&gt;standard output&lt;/a&gt;, without graphical display.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;unity-build-settings.png&#34;
+alt=&#34;Server Build option in Unity build settings that turn on headless mode&#34; width=&#34;356&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;&lt;q&gt;Server Build&lt;/q&gt; option in Unity build settings that turn on headless mode&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Even if you don&amp;rsquo;t use the &lt;code&gt;Debug.Log()&lt;/code&gt; method provided by Unity, we&amp;rsquo;ve also figured out that just like creating a
+typical application the &lt;a href=&#34;https://docs.microsoft.com/dotnet/api/system.console&#34;&gt;&lt;code&gt;Console&lt;/code&gt;&lt;/a&gt; class provided by the .NET standard works as well.&lt;/p&gt;
+&lt;p&gt;However, since the &lt;code&gt;Main()&lt;/code&gt; method cannot be defined, the command line factor was not accepted as the &lt;code&gt;string[] args&lt;/code&gt;
+parameter of the &lt;code&gt;Main()&lt;/code&gt; method, but instead had to be obtained as the &lt;a href=&#34;https://docs.microsoft.com/dotnet/api/system.environment.getcommandlineargs&#34;&gt;&lt;code&gt;Environment.GetCommandLineArgs()&lt;/code&gt;&lt;/a&gt;
+method. Similarly, the program&amp;rsquo;s termination required an explicit call to the &lt;a href=&#34;https://docs.unity3d.com/ScriptReference/Application.Quit.html&#34;&gt;&lt;code&gt;Application.Quit()&lt;/code&gt;&lt;/a&gt; method to
+terminate the process directly.&lt;/p&gt;
+&lt;p&gt;Lastly, there were messages being output from Unity player itself, but we couldn&amp;rsquo;t find a way to block it, so we had
+to wrap it up.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:4&#34;&gt;&lt;a href=&#34;#fn:4&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;noisy-output.png&#34;
+alt=&#34;Unity player&amp;amp;rsquo;s own message, printed on the first and last line, was never removed.&#34; width=&#34;739&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Unity player&amp;rsquo;s own message, printed on the first and last line, was never removed.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;build-automation&#34;&gt;Build Automation&lt;/h2&gt;
+&lt;p&gt;Building a CLI app with Unity and writing a document on how to build one on Windows as well as Linux or macOS makes
+the process tricky and easier for people to get inconsistent results. So we decided to make a tag in the repository
+and when pushed, and it&amp;rsquo;ll automatically build for Linux, macOS, and Windows.&lt;/p&gt;
+&lt;p&gt;Although we thought about putting CI on the board, we decided that it was unnecessary and used &lt;a href=&#34;https://github.com/features/actions&#34;&gt;GitHub Actions&lt;/a&gt; to build it.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://medium.com/@neuecc/using-circle-ci-to-build-test-make-unitypackage-on-unity-9f9fa2b3adfd&#34;&gt;Referring to Kawai Yoshifumi&amp;rsquo;s post&lt;/a&gt;, we were able to carry out the entire build process inside the Docker.
+In the process, we experienced things that we hadn&amp;rsquo;t experienced in other environments:&lt;/p&gt;
+&lt;p&gt;Because Unity was a commercial product, we needed to activate the license.&lt;/p&gt;
+&lt;p&gt;Unity has somewhat an ambiguous boundary between an editor and a player. The code that will run in the editor environment
+can also be scripted, and this enables the app to be built by itself because Unity includes the app-building script as
+part of the app and then runs it.&lt;/p&gt;
+&lt;p&gt;At first, we thought we needed to build on all three operating systems, but fortunately, Unity supported &lt;a href=&#34;https://en.wikipedia.org/wiki/Cross_compiler&#34;&gt;cross-compiling&lt;/a&gt;
+and we were able to build the app for macOS and Windows on Linux.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;github-actions.png&#34;
+alt=&#34;Being Built on GitHub Actions&#34; width=&#34;823&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Being Built on GitHub Actions&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h2&gt;
+&lt;figure&gt;
+&lt;img src=&#34;after.png&#34;
+alt=&#34;Current Build with Unit Test Added in Unity Environment&#34; width=&#34;298&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Current Build with Unit Test Added in Unity Environment&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;The newly built xUnit.net test runner for Unity has been applied on Libplanet project and is currently working well.
+By working well, we mean that the tests are often breaking due to
+different actions that are only seen in Unity environments. 😇 Of course, we&amp;rsquo;re glad to accept it because that&amp;rsquo;s the
+point of building a unit test &amp;mdash; to find bugs as early as possible.&lt;/p&gt;
+&lt;p&gt;The runner is not yet neatly organized, but we have still &lt;a href=&#34;https://github.com/planetarium/xunit-unity-runner&#34;&gt;put it up as an open source on GitHub&lt;/a&gt;. The executable
+file is available on the &lt;a href=&#34;https://github.com/planetarium/xunit-unity-runner/releases&#34;&gt;releases page&lt;/a&gt;, so if you want to try it out, it&amp;rsquo;s all yours!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;As of June 2019, &lt;abbr title=&#34;continuous integration&#34;&gt;CI&lt;/abbr&gt; services that support all Linux, macOS, and Windows include &lt;a href=&#34;https://travis-ci.com/&#34;&gt;Travis CI&lt;/a&gt; and Azure Pipelines. Our team used Travis CI at first, but it didn&amp;rsquo;t perform well, so we&amp;rsquo;re now using Azure Pipelines.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:2&#34;&gt;Because the .NET Framework supports only Windows, it will be tested in 7 environments instead of 9.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:2&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:3&#34;&gt;Because the .NET &lt;abbr title=&#34;integrated development environment&#34;&gt;IDE&lt;/abbr&gt; has become very common for quite some time, there are many projects that don&amp;rsquo;t post API documents on the Web and simply leave &lt;a href=&#34;https://docs.microsoft.com/dotnet/csharp/programming-guide/xmldoc/&#34;&gt;XML document annotations&lt;/a&gt; in the source code. Those annotations will appear small as a tooltip when the class or method is automatically completed in IDE.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:3&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:4&#34;&gt;If anyone knows how, please let us know. Or better, send us a pull request!
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:4&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>Hong Minhee</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>Understanding TURN through an Example</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/06/nat_traversal_2/" title="Understanding TURN through an Example"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/06/nat_traversal_2/" hreflang="ko" title="예제로 보는 TURN"/><id>https://snack.planetarium.dev/eng/2019/06/nat_traversal_2/</id><published>2019-06-18T00:00:00&#43;00:00</published><updated>2019-06-18T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Swen Mun from the Planetarium Dev Team. I introduced you all to &lt;a href=&#34;https://en.wikipedia.org/wiki/NAT_traversal&#34;&gt;NAT traversal&lt;/a&gt; &lt;a href=&#34;https://snack.planetarium.dev/eng/2019/04/nat_traversal_1/&#34;&gt;in my earlier post&lt;/a&gt;. Today, let’s take a deeper look at &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;As the name &amp;ldquo;Traversal Using Relays around NAT&amp;rdquo; suggests, TURN refers to the way servers with authorized IP relay peers that want to communicate. It might be difficult to understand this concept simply by listing the functions and sequences, so let me just give you an example of how we actually use TURN in &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;blockchain-nat&#34;&gt;Blockchain &amp;amp; NAT&lt;/h2&gt;
+&lt;p&gt;Libplanet is a library that makes blockchain technology easy to use in game development. Many blockchain implementations use &lt;a href=&#34;https://en.wikipedia.org/wiki/Peer-to-peer&#34;&gt;P2P&lt;/a&gt;-type networks for communications between distributed &lt;a href=&#34;https://en.wikipedia.org/wiki/Node_(networking)&#34;&gt;nodes&lt;/a&gt;, and so does Libplanet. Unlike other implementations, however, the blockchain application implemented through Libplanet is a game. Typically, these games run on personal computers, on non-stop consoles, and on personal devices such as smartphones, most of which do not have a separate, authorized IP on a NAT-configured network. So, applications running on these devices must pass through NAT for P2P communication.&lt;/p&gt;
+&lt;p&gt;For this reason, Libplanet supports relaying using TURN from 0.2.0. And here&amp;rsquo;s how it works.&lt;/p&gt;
+&lt;h2 id=&#34;port-allocation&#34;&gt;Port Allocation&lt;/h2&gt;
+&lt;p&gt;The first step in relaying over the TURN is a step known as port allocation. Nodes that want to broadcast from outside of NAT send an allocation request (with the appropriate credentials, if necessary) to the TURN server. The request dialogue will be something like this.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Node: I&amp;rsquo;d like to receive a relay through an authorized IP and port. Please allocate an appropriate IP and port.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;If the request is correct, the TURN server will select and open the appropriate IP and port to receive the connection depending on the settings, and send the following response.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TURN Server: Port assigned. The address to be relayed in the future is &lt;code&gt;54.12.1.3:65002&lt;/code&gt;. (Nonce: &lt;code&gt;xyz&lt;/code&gt;)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;This connection that requests port allocation is called &lt;em&gt;control connection&lt;/em&gt; and it is used for communications between TURN server and the node. One caveat here is the nonce that the TURN server sends with its response. Nonce is unique for each control connection and the acquired nonce must be included in all requests of the control connection. (Or, you may receive a stale nonce error and request it again.)&lt;/p&gt;
+&lt;h2 id=&#34;authorization-request-and-approval&#34;&gt;Authorization Request and Approval&lt;/h2&gt;
+&lt;p&gt;With the assigned IP and port (&lt;code&gt;54.12.1.3:65002&lt;/code&gt;), it would be great if other nodes were able to connect directly, but we need to go through one more step—Authorization Request. This is to request the TURN server to enable the allocated port to connect to other IP nodes. Any connections that have not been requested for authorization are blocked, which means that the node you want to relay must have prior IP information of the node you want to connect to.&lt;/p&gt;
+&lt;p&gt;But in real life, many users don&amp;rsquo;t know or care about their own public IP, so it&amp;rsquo;s very difficult to communicate this information directly. To resolve this, use cases such as &lt;a href=&#34;https://webrtc.org/&#34;&gt;WebRTC&lt;/a&gt; often figure out the IP information of the node to access at the &lt;a href=&#34;https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling&#34;&gt;signaling&lt;/a&gt; stage. Meanwhile, Libplanet uses the STUN protocol to check if the IP is behind NAT, and if so, it will send the IP to other nodes along with the IP/port that is relayed as public IP. The nodes that receive this information go through the process of requesting permission first via an public IP before they can access the information that has been relayed.&lt;/p&gt;
+&lt;p&gt;If a node knows the public IP (&lt;code&gt;10.1.1.1&lt;/code&gt;) of another node that it wants to connect to, the authorization request will probably be as follows.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Node: Requesting Authorization from &lt;code&gt;10.1.1.1&lt;/code&gt; to &lt;code&gt;54.12.1.3:65002&lt;/code&gt;.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;This access expires after a 300-second lifetime, and to prevent this, the node that requested the authorization must re-request to the TURN server.&lt;/p&gt;
+&lt;h2 id=&#34;connection-notification-and-new-connection-request&#34;&gt;Connection Notification and New Connection Request&lt;/h2&gt;
+&lt;p&gt;After authorization request and approval has been completed, other nodes that have been approved with the allocated IP and port can finally connect. When the nodes make a connection, the TURN server detects it and sends the following message to the control connection.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TURN Server: A connection attempt was made from &lt;code&gt;10.1.1.1&lt;/code&gt; to &lt;code&gt;54.12.1.3:65002&lt;/code&gt;. (Connection ID: &lt;code&gt;1234&lt;/code&gt;)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;For the node that requested TURN Server relay to accept this connection, it can create a new connection (not the control connection) and request it to the TURN server. In order to distinguish the external connection request, connection ID should be included in the connection notification message.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Node: Please transfer data from connection ID: &lt;code&gt;1234&lt;/code&gt; to this connection from now on.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;This new connection is called a &lt;em&gt;data connection&lt;/em&gt;. Subsequent requests to &lt;code&gt;54.12.1.3:65002&lt;/code&gt; are passed through this data connection, and responses to the nodes connected to that IP/port are sent to this data connection, goes through the TURN server, and finally to the node.&lt;/p&gt;
+&lt;h2 id=&#34;remaining-steps&#34;&gt;Remaining Steps&lt;/h2&gt;
+&lt;p&gt;In order to actually send a response properly, it is necessary to re-relay the data connections created previously and the request-response connection on the Libplanet node. No separate protocol or disclosure standard has been set because this step only needs to be handled well within the node. If the TURN client runs in a separate process from the web server, you can use the &lt;a href=&#34;https://en.wikipedia.org/wiki/Inter-process_communication&#34;&gt;IPC&lt;/a&gt; method and if they run in the same process, inter-thread communication can be used to handle the communication. In our case, Libplanet relays a separate TCP proxy by running it locally.&lt;/p&gt;</content><author><name>Swen Mun</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.3 Released</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/libplanet-0.3/" title="Libplanet 0.3 Released"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/libplanet-0.3/" hreflang="ko" title="Libplanet 0.3 릴리스"/><id>https://snack.planetarium.dev/eng/2019/05/libplanet-0.3/</id><published>2019-05-31T00:00:00&#43;00:00</published><updated>2019-05-31T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello everyone, we are happy to announce that the third minor version of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;&amp;mdash;&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.3.0&#34;&gt;Version 0.3&lt;/a&gt;, has been released.&lt;/p&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as P2P communication and data synchronization when creating online multiplay games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;This post will cover key changes in Version 0.3.&lt;/p&gt;
+&lt;h2 id=&#34;responsive-apis-for-nodes-with-different-versions&#34;&gt;Responsive APIs for Nodes with Different Versions&lt;/h2&gt;
+&lt;p&gt;In Version 0.2, we added the &lt;code&gt;appProtocolVersion&lt;/code&gt; parameter on the &lt;code&gt;Swarm&lt;/code&gt; constructor to designate a protocol version to a node.
+Now from Version 0.3, you can use the &lt;code&gt;Swarm.DifferentVersionPeerEncountered&lt;/code&gt; event handler to specify the behavior when
+encountering nodes with different versions.&lt;/p&gt;
+&lt;p&gt;For example, if you receive a message from a higher protocol version, you can configure &lt;code&gt;Swarm.DifferentVersionPeerEncountered&lt;/code&gt; so that it requires game app upgrades.&lt;/p&gt;
+&lt;h2 id=&#34;action-rendering-api&#34;&gt;Action Rendering API&lt;/h2&gt;
+&lt;p&gt;Previously, game apps weren&amp;rsquo;t able to receive a signal (event) indicating completion of an action&amp;mdash;specifically, whether or not the execution of an action was reflected in the results of &lt;code&gt;GetStates()&lt;/code&gt; method.
+Therefore, in order to ensure that an action for a particular address was processed, you had to use methods like &lt;a href=&#34;https://en.wikipedia.org/wiki/Polling_(computer_science)&#34;&gt;polling&lt;/a&gt; to determine if the state of the address changed to a post-action state.
+Not only was this approach complex and cumbersome to implement, but it also had performance issues because the method needed to check the account states multiple times.&lt;/p&gt;
+&lt;p&gt;To address this issue, an Action Rendering API has been added in this version.
+The &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Render_Libplanet_Action_IActionContext_Libplanet_Action_IAccountStateDelta_&#34;&gt;&lt;code&gt;IAction.Render()&lt;/code&gt;&lt;/a&gt; method allows games to receive an event that reflects the outcome of an action in the local states.
+Also, if a block containing a processed action becomes invalid due to a change in the majority chain, the &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Unrender_Libplanet_Action_IActionContext_Libplanet_Action_IAccountStateDelta_&#34;&gt;&lt;code&gt;IAction.Unrender()&lt;/code&gt;&lt;/a&gt; method allows you to revert an action that has already been rendered.&lt;/p&gt;
+&lt;h2 id=&#34;improved-accessibility-to-account-states&#34;&gt;Improved Accessibility to Account States&lt;/h2&gt;
+&lt;p&gt;In previous versions, we sequentially searched blocks until finding the one with the latest update of the account states.
+In this approach, searching for the account states never made required all blocks to be checked starting from the latest address down to the very end.
+Additionally, accounts that had not been updated for a long time while new blocks were continuously added on required you to circle lots of blocks,
+and the longer the chain length, the longer you had to check.&lt;/p&gt;
+&lt;p&gt;In this version, we have improved search performance by indexing the blocks with the states of each address when saving,
+and directly searching a block when accessing the states.&lt;/p&gt;
+&lt;h2 id=&#34;improved-performance-on-appending-blocks&#34;&gt;Improved Performance on Appending Blocks&lt;/h2&gt;
+&lt;p&gt;The implementation process that follows when adding blocks to the blockchain has been greatly improved on Version 0.3.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Redundant validation process when accessing blocks already added to the chain has been removed.&lt;/li&gt;
+&lt;li&gt;We&amp;rsquo;ve moved on from validating the entire chain when adding a block to just validating that specific block.&lt;/li&gt;
+&lt;li&gt;Instead of calculating every time a block hash is required, we now only calculate once when a block is created.&lt;/li&gt;
+&lt;li&gt;We&amp;rsquo;ve reduced hash calculation time by deriving it from a transaction ID instead of the entire transaction.&lt;/li&gt;
+&lt;li&gt;Multiple action evaluating process when adding a block has been reduced to once, minimizing overall block adding time.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;furthermore&#34;&gt;Furthermore,&lt;/h2&gt;
+&lt;p&gt;You can learn more about additional changes in &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.3.0&#34;&gt;our release notes&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;And as always, if you have any questions about the new release or Libplanet in general, please visit &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;our Discord chatroom&lt;/a&gt; and let’s chat!&lt;/p&gt;</content><author><name>Seunghun Lee</name><uri>https://github.com/earlbread</uri><email>seunghun@planetariumhq.com</email></author></entry><entry><title>Libplanet Team will participate in Sprint Seoul</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/sprintseoul/" title="Libplanet Team will participate in Sprint Seoul"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/sprintseoul/" hreflang="ko" title="Libplanet 팀이 스프린트서울에 참가합니다"/><id>https://snack.planetarium.dev/eng/2019/05/sprintseoul/</id><published>2019-05-20T00:00:00&#43;00:00</published><updated>2019-05-20T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Did you know &lt;a href=&#34;https://sprintseoul.org/&#34;&gt;Sprint Seoul&lt;/a&gt; will be held in Gangnam this June 29th (Sat)?
+Sprint Seoul is an open source event that gathers people passionate about open source culture and encourages them to contribute codes and/or documents to open source projects.
+Even those who are interested in open source but have not been able to contribute can also come to the event and experience their first open source contribution.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Sprint invites both authors and contributors of open source projects to get together and find/resolve issues in a short period of time,
+enabling both parties to dive deep into the projects.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Our team has already participated in the event last April, and we’re continuing our participation this coming June. We are participating as the leader of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt; Project, and we look forward to meeting you all at the event to further develop our project.&lt;/p&gt;
+&lt;p&gt;Applications for Sprint Seoul will only be accepted until June 20th, and details of the &lt;a href=&#34;https://forms.gle/DHjbhgpWz9QgzpFo8&#34;&gt;application form&lt;/a&gt; and the event can be found on the &lt;a href=&#34;https://sprintseoul.org/&#34;&gt;official website&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;introducing-project-libplanet&#34;&gt;Introducing Project Libplanet&lt;/h2&gt;
+&lt;p&gt;For those of you who are curious about Libplanet Project, here&amp;rsquo;s an introduction from &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/eng/2019/04/libplanet-0.2/&#34;&gt;Libplanet 0.2 Released&lt;/a&gt;&lt;/cite&gt;.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as
+&lt;abbr title=&#34;Peer-to-Peer&#34;&gt;P2P&lt;/abbr&gt; communication and data synchronization
+when creating online multiplay games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;Libplanet is now being developed in C# language,
+with the aim of being used in conjunction with the popular Unity engine.
+Of course, even if you don&amp;rsquo;t use Unity,
+Libplanet targets &lt;a href=&#34;https://github.com/dotnet/standard/blob/master/docs/versions/netstandard2.0.md&#34;&gt;.NET Standard 2.0&lt;/a&gt; so that it&amp;rsquo;s easy to use for
+games that are implemented on .NET or Mono.&lt;/p&gt;
+&lt;p&gt;Another feature of Libplanet is that it is a library,
+not an engine or a framework.
+Since engines and frameworks control the entry point (&lt;code&gt;Main()&lt;/code&gt; method) of
+a process and dictate its execution flow, game programmers have limited control
+and can only program essentially through scripts within sections explictly allowed.
+Libplanet does not preempt the game process and operates only when it is
+explicitly invoked by the game programmer.
+This allows Libplanet to function with game engines like Unity without imposing
+additional limitations on the developer.&lt;/p&gt;
+&lt;p&gt;Libplanet is listed on &lt;a href=&#34;https://www.nuget.org/packages/Libplanet/&#34;&gt;NuGet&lt;/a&gt; along with &lt;a href=&#34;https://docs.libplanet.io/&#34;&gt;API docs&lt;/a&gt;.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;setting-up-a-dev-environment&#34;&gt;Setting Up a Dev Environment&lt;/h2&gt;
+&lt;p&gt;Before participating in Sprint Seoul, you need to install a development environment. As any project will be, setting up an environment takes much longer than people generally anticipate, which unfortunately wastes valuable time. So if possible, &lt;strong&gt;we’d really appreciate it if you could set up an environment prior to the event.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Unlike Python or JavaScript, C# is a language that is difficult to code without an IDE. If you&amp;rsquo;re using Windows, you can install the latest version of Visual Studio, but we recommend Rider or VS Code which can be used across multiple platforms. The following documents provide instructions in Korean on how to install a development environment for Libplanet, assuming that you are using Rider or Visual Studio Code.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://gist.github.com/dahlia/5333634f62509293cd46c0e4ba65b2f5&#34;&gt;Setting the Libplanet Development Environment (VS Code)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://gist.github.com/dahlia/08f6e659e2266e941ad026f591c30c9a&#34;&gt;Setting the Libplanet Development Environment (Rider)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;In addition, the &lt;em&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet/blob/master/CONTRIBUTING.md&#34;&gt;CONTRIBUTING.md&lt;/a&gt;&lt;/em&gt; file in the Libplanet repository guides you through the very basic development environment settings that you develop using only the CLI tool. If you really want to use other editors, please read this file. However, we recommend that you install a well-running environment in advance, since our team may not be able to help you at the day of the event.&lt;/p&gt;
+&lt;h2 id=&#34;issues-worth-checking-out&#34;&gt;Issues Worth Checking Out&lt;/h2&gt;
+&lt;p&gt;We&amp;rsquo;ve put together a collection of &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22&#34;&gt;beginner issues&lt;/a&gt; for first time contributors. These are issues that you can do without going deep and doesn’t require you to know the entire structure of the project.&lt;/p&gt;
+&lt;p&gt;If you&amp;rsquo;re worried about what and how to contribute, I think Seunghun&amp;rsquo;s post, &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/eng/2019/05/first-contribution/&#34;&gt;First Contribution to Libplanet&lt;/a&gt;&lt;/cite&gt; will certainly help.&lt;/p&gt;
+&lt;h2 id=&#34;reach-out&#34;&gt;Reach Out!&lt;/h2&gt;
+&lt;p&gt;If you have any questions, please visit &lt;a href=&#34;https://discord.gg/wUgwkYW&#34;&gt;our Discord server&lt;/a&gt; at #libplanet-users channel and ask away! You’re all welcome to come in before or even after the event to chat with us.&lt;/p&gt;</content><author><name>Hong Minhee</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>Migrating from Unity 2018.2 to 2018.3</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/unity-2018.3/" title="Migrating from Unity 2018.2 to 2018.3"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/unity-2018.3/" hreflang="ko" title="Unity 2018.2에서 2018.3으로 이주하기"/><id>https://snack.planetarium.dev/eng/2019/05/unity-2018.3/</id><published>2019-05-17T00:00:00&#43;00:00</published><updated>2019-05-17T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Hyun Seungmin from Planetarium Game-Dev Team. We’ve been preparing a migration to utilize some of the features added or improved on Unity 2018.3.&lt;/p&gt;
+&lt;h2 id=&#34;nested-prefab&#34;&gt;Nested Prefab&lt;/h2&gt;
+&lt;p&gt;There have already been numerous references on the improved workflow thanks to Nested Prefab.&lt;/p&gt;
+&lt;dl&gt;
+&lt;dt&gt;Simultaneous Editing&lt;/dt&gt;
+&lt;dd&gt;Previously, teams had to talk prior to fixing each prefab. Otherwise, prefabs fixed by different members from their local storage were bound to crash when uploaded in the upstream storage. However, the new prefab has a way to avoid this conflict by structuring the change points into separate prefabs. Although there is still room for collision between the same prefab, the frequency has significantly decreased due to the smaller category of prefab.&lt;/dd&gt;
+&lt;dt&gt;Multiple Structure&lt;/dt&gt;
+&lt;dd&gt;Whereas one prefab was traditionally a single structure that contained all of the objects under it, the new prefab can separate the specific objects under it into another prefab, and the objects under the prefab can be multi-structured to be managed by that prefab. This method allows the prefab to be modularized and reusable, reducing redundancy.&lt;/dd&gt;
+&lt;dt&gt;Prefab Variant&lt;/dt&gt;
+&lt;dd&gt;You can create a prefab variant by inheriting one prefab while overriding its internal properties or adding components/game objects. This reduces the cost of managing the prefab because changes in the original prefab are reflected on the prefab variant.&lt;/dd&gt;
+&lt;dt&gt;Prefab Mode&lt;/dt&gt;
+&lt;dd&gt;Traditionally, creating or modifying a prefab required creating a temporary instance in the scene, modifying it, reflecting it in the prefab, and then erasing the temporary instance again. These required lots of tedious work and there were plenty of room for mistakes in each process. But the newly added prefab mode simplified these workflows to improve dev speed and reliability. Unfortunately, there are still bugs in the prefab mode such as graphic visibility issues, which requires the old way of modification.&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;h2 id=&#34;memory-profiler&#34;&gt;Memory Profiler&lt;/h2&gt;
+&lt;p&gt;You can now use enhanced memory profilers to get a more detailed approach to troubleshooting.&lt;/p&gt;
+&lt;h2 id=&#34;2d-animation-v2&#34;&gt;2D Animation v2&lt;/h2&gt;
+&lt;p&gt;The workflows of Unity’s traditional animation system were so uncomfortable that they needed to be migrated to either the new 2D Animation v2 or an external tool called Spine. Although we ended up using Spine, we were able to see great improvement in 2D Animation v2.&lt;/p&gt;
+&lt;h2 id=&#34;particle-system&#34;&gt;Particle System&lt;/h2&gt;
+&lt;p&gt;Because visual effects are extremely important in our project, we aimed for an overall enhancement through the newly improvement Particle System. Despite not making any modifications to the resource, we received positive feedback from our visual arts team on the evident enhancement of visual effects.&lt;/p&gt;
+&lt;hr /&gt;
+&lt;p&gt;Unexpectedly, a day before our migration, Unity 2019.1 was officially released. So in the following article, we will look at the added features of Unity 2019.1 and talk about how we responded.&lt;/p&gt;</content><author><name>Hyun Seungmin</name><uri>https://github.com/boscohyun</uri><email>seungmin@planetariumhq.com</email></author></entry><entry><title>First Contribution to Libplanet</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/first-contribution/" title="First Contribution to Libplanet"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/first-contribution/" hreflang="ko" title="Libplanet 처음 기여하기"/><id>https://snack.planetarium.dev/eng/2019/05/first-contribution/</id><published>2019-05-07T00:00:00&#43;00:00</published><updated>2019-05-07T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Seunghun Lee, member of Planetarium Dev Team. I believe one of the reasons why working at Planetarium is so attractive is that I can work as an open source developer. This piece is about my first contribution to Project &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt;. For an introduction to Libplanet, please see &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/eng/2019/04/libplanet-0.2/&#34;&gt;Libplanet 0.2 Released&lt;/a&gt;&lt;/cite&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;why-did-i-contribute-to-libplanet&#34;&gt;Why did I contribute to Libplanet?&lt;/h2&gt;
+&lt;p&gt;In January, Planetarium announced its first recruiting notice and revealed a repository for Project Libplanet. Although I thought it was an attractive project by an impressive team, I was hesitant to apply because Libplanet was being developed in C# to work with Unity (my main expertise was Python). After a brief hesitation, however, I made up my mind to participate in Libplanet anyways because it was an open source project. I decided to participate in basic issues at first and see how it went.&lt;/p&gt;
+&lt;h2 id=&#34;c-development-environment&#34;&gt;C# Development Environment&lt;/h2&gt;
+&lt;p&gt;As mentioned earlier, I used to mainly develop in Python on Mac. I often contributed to Python open source projects that interested me and this was easy because most Python developers also developed on Mac and were familiar with the open source environment. But as I was about to build a C# development environment on Mac, I found myself stuck from the very first step, unsure about what to install. Fortunately, there were projects like &lt;a href=&#34;https://www.mono-project.com/&#34;&gt;Mono&lt;/a&gt; and &lt;a href=&#34;https://en.wikipedia.org/wiki/.NET_Core&#34;&gt;.NET Core&lt;/a&gt; that enabled .NET development on Mac, and editors such as &lt;a href=&#34;https://code.visualstudio.com/&#34;&gt;VS Code&lt;/a&gt; that also supported plug-ins for C# development. So I was able to set up an environment without much difficulty. Now that Libplanet also provides a &lt;a href=&#34;https://github.com/planetarium/libplanet/blob/master/CONTRIBUTING.md&#34;&gt;developer guide&lt;/a&gt;, I think it will be much easier for developers who want to contribute to the project.&lt;/p&gt;
+&lt;h2 id=&#34;what-to-contribute&#34;&gt;What to Contribute?&lt;/h2&gt;
+&lt;p&gt;Libplanet’s address uses &lt;a href=&#34;https://www.ethereum.org/&#34;&gt;Ethereum&lt;/a&gt;&amp;rsquo;s address format, which uses a checksum in a combination of upper and lower case letters proposed in &lt;a href=&#34;https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md&#34;&gt;EIP-55&lt;/a&gt;. For example:&lt;/p&gt;
+&lt;dl&gt;
+&lt;dt&gt;Hexadecimal&lt;/dt&gt;
+&lt;dd&gt;&lt;code&gt;0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb&lt;/code&gt;&lt;/dd&gt;
+&lt;dt&gt;EIP-55 Checksum&lt;/dt&gt;
+&lt;dd&gt;&lt;code&gt;0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb&lt;/code&gt;&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;p&gt;When I first contributed to Libplanet, the project used hexadecimal consisting of only lowercase letters for its address format. Therefore, this issue had to be implemented so that the address string representation was expressed in the EIP-55 checksum format used by Ethereum. For more information, see the corresponding &lt;a href=&#34;https://github.com/planetarium/libplanet/issues/33&#34;&gt;issue&lt;/a&gt; and &lt;a href=&#34;https://github.com/planetarium/libplanet/pull/43&#34;&gt;pull request&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Although I had little development experience and background in C#, it was a simple issue that did not require many modules to be fixed, so I was able to make my first contribution rather easily.&lt;/p&gt;
+&lt;h2 id=&#34;what-i-learned-through-my-first-contribution&#34;&gt;What I Learned Through My First Contribution&lt;/h2&gt;
+&lt;p&gt;What I found out from my first contribution was that the C# development environment on Mac was more easy than I had anticipated. The language itself was not difficult because C# was oriented towards a popularized multi-paradigm programming language. While the .NET development environment on Mac was not too difficult to develop, support for various tools on third-party libraries and non-window platforms was still insufficient. However, this is expected to improve gradually thanks to Microsoft&amp;rsquo;s recent open source and multi-platform policies.&lt;/p&gt;
+&lt;p&gt;I was also able to experience the development culture of Planetarium Team, and it was impressive that all issues were recorded on Github and that members all used English to communicate with the open source community around the world. And since the project was being externally contributed, code reviews were required and management systems like testing and changelogs were being automated and managed through CI.&lt;/p&gt;
+&lt;h2 id=&#34;epilogue&#34;&gt;Epilogue&lt;/h2&gt;
+&lt;p&gt;Being on Planetarium for about a month since my first contribution, I’m happy to say that I really enjoy working with them.&lt;/p&gt;
+&lt;p&gt;Planetarium has participated in events such as &lt;a href=&#34;https://comuka.nonce.community/&#34;&gt;Code-Eating Hippo&lt;/a&gt; and &lt;a href=&#34;https://sprintseoul.org/&#34;&gt;Sprint Seoul&lt;/a&gt; to promote Libplanet contribution and will continue to actively participate in these events. For those in a similar situation as I was a month ago, there are &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22&#34;&gt;beginners&amp;rsquo; issues&lt;/a&gt; for those wanting to contribute for the first time so please check it out.&lt;/p&gt;
+&lt;p&gt;As always, if you have any questions about the project, please visit our &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;Discord chat room&lt;/a&gt; anytime!&lt;/p&gt;</content><author><name>Seunghun Lee</name><uri>https://github.com/earlbread</uri><email>seunghun@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.2 Released</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/04/libplanet-0.2/" title="Libplanet 0.2 Released"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/04/libplanet-0.2/" hreflang="ko" title="Libplanet 0.2 릴리스"/><id>https://snack.planetarium.dev/eng/2019/04/libplanet-0.2/</id><published>2019-04-09T00:00:00&#43;00:00</published><updated>2019-04-09T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, last week our team released the second minor version&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; of &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;,
+&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.0&#34;&gt;Version 0.2&lt;/a&gt;.
+Although there have been several changes,
+this article will cover some key feature additions and API changes.&lt;/p&gt;
+&lt;h2 id=&#34;introduction-to-libplanet&#34;&gt;Introduction to Libplanet&lt;/h2&gt;
+&lt;p&gt;Before getting into our updates, I haven&amp;rsquo;t introduced &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt; on this blog,
+so let me briefly explain it to you.&lt;/p&gt;
+&lt;p&gt;Libplanet is a common library that solves game implementation problems such as
+&lt;abbr title=&#34;Peer-to-Peer&#34;&gt;P2P&lt;/abbr&gt; communication and data synchronization
+when creating online multiplay games that run on distributed P2P.&lt;/p&gt;
+&lt;p&gt;Libplanet is now being developed in C# language,
+with the aim of being used in conjunction with the popular Unity engine.
+Of course, even if you don&amp;rsquo;t use Unity,
+Libplanet targets &lt;a href=&#34;https://github.com/dotnet/standard/blob/master/docs/versions/netstandard2.0.md&#34;&gt;.NET Standard 2.0&lt;/a&gt; so that it&amp;rsquo;s easy to use for
+games that are implemented on .NET or Mono.&lt;/p&gt;
+&lt;p&gt;Another feature of Libplanet is that it is a library,
+not an engine or a framework.
+Since engines and frameworks control the entry point (&lt;code&gt;Main()&lt;/code&gt; method) of
+a process and dictate its execution flow, game programmers have limited control
+and can only program essentially through scripts within sections explictly allowed.
+Libplanet does not preempt the game process and operates only when it is
+explicitly invoked by the game programmer.
+This allows Libplanet to function with game engines like Unity without imposing
+additional limitations on the developer.&lt;/p&gt;
+&lt;p&gt;Libplanet is listed on &lt;a href=&#34;https://www.nuget.org/packages/Libplanet/&#34;&gt;NuGet&lt;/a&gt; along with &lt;a href=&#34;https://docs.libplanet.io/&#34;&gt;API docs&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;abbr-title-network-address-translation-nat-abbr-traversal&#34;&gt;&lt;abbr title=&#34;Network Address Translation&#34;&gt;NAT&lt;/abbr&gt; Traversal&lt;/h2&gt;
+&lt;p&gt;Although P2P communication was possible from &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.1.0&#34;&gt;Libplanet 0.1&lt;/a&gt;,
+all peers had to have a public IP.
+In other words, because we couldn&amp;rsquo;t reach peers behind routers,
+network communication was actually limited in reality.
+Solving this issue was a top priority for us and so
+traversing NAT was a major goal in the 0.2 roadmap.
+To cover most cases,
+we implemented &lt;a href=&#34;https://tools.ietf.org/html/rfc5766&#34;&gt;RFC 5766&lt;/a&gt; and &lt;a href=&#34;https://tools.ietf.org/html/rfc5389&#34;&gt;RFC 5389&lt;/a&gt;,
+called &lt;abbr title=&#34;Traversal Using Relays around NAT&#34;&gt;TURN&lt;/abbr&gt; and
+&lt;abbr title=&#34;Session Traversal Utilities for NAT&#34;&gt;STUN&lt;/abbr&gt;.
+Also, there weren&amp;rsquo;t any open source C# implementation to ease the process,
+so our team&amp;rsquo;s Swen Mun implemented the necessary parts of
+the specification from scratch.
+If you&amp;rsquo;re interested in Swen&amp;rsquo;s journey, please also read the article,
+&lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/eng/2019/04/nat_traversal_1/&#34;&gt;Moving Beyond NAT&lt;/a&gt;&lt;/cite&gt;, in which he explains how he solved
+this problem.&lt;/p&gt;
+&lt;h2 id=&#34;more-game-fitting-transaction&#34;&gt;More Game-fitting Transaction&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html&#34;&gt;&lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;&lt;/a&gt; is a unit that synchronizes data between network members.
+Up to the previous version of Libplanet,
+we referred to existing technologies such as &lt;a href=&#34;https://bitcoin.org/&#34;&gt;Bitcoin&lt;/a&gt;
+that solve similar problems and took on the concept
+that all transactions had a sender and a recipient.
+In the case of Bitcoin, it deals with monetary transactions so
+the notion that there are senders and recipients in
+every transaction comes naturally.
+In games, however, there are often actions that do not carry a recipient
+concept, such as the movement of a character,
+or actions that may have more than one recipient, such as wide range skills.&lt;/p&gt;
+&lt;p&gt;So to make this transaction more game-fitting,
+Libplanet from this version on will dismiss the &lt;code&gt;Sender&lt;/code&gt;–&lt;code&gt;Recipient&lt;/code&gt; concept of
+&lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt; and instead,
+replace it with the &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_Signer&#34;&gt;&lt;code&gt;Signer&lt;/code&gt;&lt;/a&gt;–&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_UpdatedAddresses&#34;&gt;&lt;code&gt;UpdatedAddress&lt;/code&gt;&lt;/a&gt; concept.&lt;/p&gt;
+&lt;h2 id=&#34;new-status-access-api&#34;&gt;New Status Access API&lt;/h2&gt;
+&lt;p&gt;Previously, all &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IAction.html&#34;&gt;&lt;code&gt;IAction&lt;/code&gt;&lt;/a&gt; implementations had to request a set of account
+addresses to be accessed within the &lt;code&gt;Execute()&lt;/code&gt; method through
+the &lt;code&gt;RequestStates()&lt;/code&gt; method.
+Ones that attempted to read or write status of addresses that weren&amp;rsquo;t requested
+in advance were treated as invalid.&lt;/p&gt;
+&lt;p&gt;However, we came to the conclusion that, since the status shared
+in the public network through blockchain could be read anyway,
+the limitation on reading didn&amp;rsquo;t mean much, only the limit on updating.&lt;/p&gt;
+&lt;p&gt;Additionally, the duplicated information on the accounts to be accessed
+in both the &lt;code&gt;RequestStates()&lt;/code&gt; method and the &lt;code&gt;Execute()&lt;/code&gt; method was bug-prone.
+And even if you were careful, fixing the both methods together was a big hassle.&lt;/p&gt;
+&lt;p&gt;To solve these problems, the &lt;code&gt;IAction&lt;/code&gt; interface&amp;rsquo;s status access API
+has been greatly improved on this version of Libplanet.
+The &lt;code&gt;RequestStates()&lt;/code&gt; method has disappeared altogether,
+and the &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IActionContext.html#Libplanet_Action_IActionContext_PreviousStates&#34;&gt;&lt;code&gt;PreviousStates&lt;/code&gt; property&lt;/a&gt; of the &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IActionContext.html&#34;&gt;&lt;code&gt;IActionContext&lt;/code&gt;&lt;/a&gt; object,
+which entered the factor in &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Execute_Libplanet_Action_IActionContext_&#34;&gt;&lt;code&gt;IAction.Execute()&lt;/code&gt; method&lt;/a&gt;,
+now provides a kind of &amp;ldquo;record of changes&amp;rdquo; API.
+This &amp;ldquo;record of changes&amp;rdquo; is stacked inside the &lt;code&gt;Execute()&lt;/code&gt; method and
+when it finally returns the change history, the status is then updated.&lt;/p&gt;
+&lt;p&gt;Also, when a transaction is created, the action is executed in &amp;ldquo;rehearsal mode,&amp;rdquo;
+which obtains a set of addresses that the &lt;code&gt;Execute()&lt;/code&gt; method is
+trying to update.
+The address set is then included in the transaction with a signature.
+This prevents a recipient node from changing the account status of addresses
+not included in the address set of the signed transaction.&lt;/p&gt;
+&lt;h2 id=&#34;optional-subtype-polymorphism&#34;&gt;Optional Subtype Polymorphism&lt;/h2&gt;
+&lt;p&gt;Up to the previous version, the only usage of Libplanet actions was that
+each game defines an abstract classs which implements &lt;code&gt;IAction&lt;/code&gt; and
+has multiple concrete classes inheriting it.
+But depending on the game, there are cases where it might be better to implement
+&lt;code&gt;IAction&lt;/code&gt; as an only class and select a behavior based on data that goes into
+the action than to define multiple types of action at the &lt;code&gt;IAction&lt;/code&gt; level.
+Moreover, some projects might face difficulties because the dynamic dispatcher
+for &lt;code&gt;IAction&lt;/code&gt; types is internally implemented using &lt;a href=&#34;https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/reflection&#34;&gt;.NET reflection&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Hence, from this version of Libplanet, &lt;code&gt;T&lt;/code&gt; in &lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt; needs not only to
+implement &lt;code&gt;IAction&lt;/code&gt; but also to concrete classes.
+Abstraction classes or interfaces aren&amp;rsquo;t acceptable
+even if they implement &lt;code&gt;IAction&lt;/code&gt;,
+and the presence of subtypes is completely ignored.&lt;/p&gt;
+&lt;p&gt;Instead, if you want to select the behavior of an action through
+subtype polymorphism, you can use &lt;code&gt;PolymorphicAction&amp;lt;T&amp;gt;&lt;/code&gt;, a new action class to
+decorate another action.
+For example, changing &lt;code&gt;Transaction&amp;lt;AbstractAction&amp;gt;&lt;/code&gt; to
+&lt;code&gt;Transaction&amp;lt;PolymorphicAction&amp;lt;AbstractionAction&amp;gt;&amp;gt;&lt;/code&gt; will work as it has been
+in most cases.
+Of course, the &lt;code&gt;PolymorphicAction&amp;lt;T&amp;gt;&lt;/code&gt; class uses .NET reflection under the hood.&lt;/p&gt;
+&lt;h2 id=&#34;furthermore&#34;&gt;Furthermore,&lt;/h2&gt;
+&lt;p&gt;There have been lots of other changes on Libplanet 0.2.0, so check them out in
+our &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.0&#34;&gt;release notes&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;FYI, two days after the release of &lt;em&gt;0.2.0&lt;/em&gt;, a new version with some
+troubleshooting issues is now released, with the latest version being
+&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.1&#34;&gt;0.2.1&lt;/a&gt; (as of April 9, 2019).&lt;/p&gt;
+&lt;p&gt;If you&amp;rsquo;re curious, install and have a look around.
+And If you have any questions, please join our &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;Discord chatroom&lt;/a&gt;!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;We have not yet released a major version.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>Hong Minhee</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>Moving Beyond NAT</title><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/04/nat_traversal_1/" title="Moving Beyond NAT"/><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/04/nat_traversal_1/" hreflang="ko" title="NAT를 넘어서 가자"/><id>https://snack.planetarium.dev/eng/2019/04/nat_traversal_1/</id><published>2019-04-04T00:00:00&#43;00:00</published><updated>2019-04-04T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;Hello, I&amp;rsquo;m Swen Mun from the Planetarium Engineering Team.
+Today we&amp;rsquo;re going to talk about what&amp;rsquo;s known as &lt;a href=&#34;https://en.wikipedia.org/wiki/NAT_traversal&#34;&gt;&lt;abbr title=&#34;Network Address Translation&#34;&gt;NAT&lt;/abbr&gt; traversal techniques&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;so-what-s-the-problem&#34;&gt;So what&amp;rsquo;s the problem?&lt;/h2&gt;
+&lt;p&gt;From game servers to smartphones, every device connected to the Internet has an &lt;a href=&#34;https://en.wikipedia.org/wiki/IP_address&#34;&gt;IP address&lt;/a&gt;.
+This enables devices to connect to one another and send/receive messages.&lt;/p&gt;
+&lt;p&gt;The fundamental problem with IP address is that quantity is limited.
+In the case of &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv4&#34;&gt;IPv4&lt;/a&gt; &amp;mdash; the most widely used protocol, it uses 32-bit addresses which means address space is limited to 2&lt;sup&gt;32&lt;/sup&gt; (more than 4 billion) addresses.
+(Of course we don&amp;rsquo;t use all of these addresses.)
+This seems enough at first glance, but it&amp;rsquo;s far short of operating more than one device per person on the planet.
+In fact, since 2011, &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv4_address_exhaustion&#34;&gt;IPv4 addresses have all been exhausted&lt;/a&gt; and no new addresses have been assigned.&lt;/p&gt;
+&lt;p&gt;To solve this problem, &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv6&#34;&gt;IPv6&lt;/a&gt; has been proposed to increase address space to 128-bits, but the supply hasn&amp;rsquo;t been able to meet users&amp;rsquo; demand.
+Thus, many network operators chose to separate the network and have multiple private IPs, and convert those addresses so that they could access the Internet through one authorized IP.
+This method is commonly referred to as &lt;a href=&#34;Network Address Translation&#34;&gt;NAT&lt;/a&gt; and sometimes refers to a device that handles such process (in general, a &lt;a href=&#34;https://en.wikipedia.org/wiki/Router_(computing)&#34;&gt;router&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;In the server-client model, accessing the Internet through NAT is not a problem.
+If the server has an authorized IP, the client can access it, whether through NAT or not.
+However, if you need to connect to a device inside the NAT/firewall, you&amp;rsquo;ve got a problem.
+Because devices outside NAT cannot access the IP of a private network inside the NAT.
+Techniques to address these situations are called &lt;a href=&#34;https://en.wikipedia.org/wiki/NAT_traversal&#34;&gt;NAT traversal techniques&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;so-which-technique-do-i-use&#34;&gt;So which technique do I use?&lt;/h2&gt;
+&lt;h3 id=&#34;abbr-title-universal-plug-and-play-upnp-abbr-abbr-title-internet-gateway-device-protocol-igdp-abbr&#34;&gt;&lt;abbr title=&#34;Universal_Plug_and_Play&#34;&gt;UPnP&lt;/abbr&gt; (&lt;abbr title=&#34;Internet Gateway Device Protocol&#34;&gt;IGDP&lt;/abbr&gt;)&lt;/h3&gt;
+&lt;p&gt;Techniques to pass through NAT can largely be divided into two categories &amp;mdash; whether they are supported by NAT or not.
+Protocols such as &lt;a href=&#34;https://en.wikipedia.org/wiki/Universal_Plug_and_Play&#34;&gt;UPnP&lt;/a&gt; that are proposed to meet the requirements of the modern Internet in which equipment connectivity is valued also addresses NAT passing issues (e.g., &lt;a href=&#34;https://en.wikipedia.org/wiki/Internet_Gateway_Device_Protocol&#34;&gt;Internet Gateway Device Protocol&lt;/a&gt;).
+However, this solution can only be applied to equipment that supports UPnP protocol.&lt;/p&gt;
+&lt;h3 id=&#34;relay-abbr-title-traversal-using-relays-around-nat-turn-abbr&#34;&gt;Relay (&lt;abbr title=&#34;Traversal Using Relays around NAT&#34;&gt;TURN&lt;/abbr&gt;)&lt;/h3&gt;
+&lt;p&gt;The other way around is not getting help from NAT. In other words, this way provides external access while maintaining the private-authorized IP system. How is this possible? At this point, let’s talk about what we can do and can&amp;rsquo;t do.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;For device with an authorized IP,&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;It can process connections from other devices.&lt;/li&gt;
+&lt;li&gt;It can connect to a device with a different authorized IP.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;A device with a private IP,&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;It is unable to process connection from other devices. 
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;To be very precise, it&amp;rsquo;s possible within the same network. But I&amp;rsquo;ll exclude this case to simplify the story. :)&lt;/em&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;It can connect to a device that has a different authorized IP.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Let&amp;rsquo;s assume that a server (&lt;em&gt;S&lt;/em&gt;) with a separate, authorized IP exists outside NAT.
+If this server processes the connection instead of the device (let’s call this &lt;em&gt;A&lt;/em&gt;) behind NAT and forwards (relay) the content to &lt;em&gt;A&lt;/em&gt;, then we can handle the connection with confidence without relying on NAT&amp;rsquo;s behavior.
+This method is referred to as relay technique and is officially called, &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;&lt;abbr title=&#34;Traversal Using Relays around NAT&#34;&gt;TURN&lt;/abbr&gt;&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id=&#34;hole-punching&#34;&gt;Hole Punching&lt;/h3&gt;
+&lt;p&gt;Another way to avoid direct help from NAT is by using a technique called &lt;a href=&#34;commonly known as [UDP hole punching] but it is also applicable to TCP&#34;&gt;hole punching&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Hole Punching also assumes a transit server (&lt;em&gt;S&lt;/em&gt;) similar to &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;.
+However, unlike &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;, the transit server does not directly relay all communications.
+Instead, it only passes on NAT&amp;rsquo;s authorized IP and device &lt;em&gt;A&lt;/em&gt;&amp;rsquo;s port information to to device &lt;em&gt;B&lt;/em&gt;.
+In this way when attempting to access &lt;em&gt;A&lt;/em&gt;, &lt;em&gt;B&lt;/em&gt; attempts to access NAT&amp;rsquo;s authorized IP and port, not &lt;em&gt;A&lt;/em&gt;&amp;rsquo;s private IP.&lt;/p&gt;
+&lt;p&gt;Although hole punching does not require NAT to implement a specific protocol like UPnP, it does require NAT’s port mapping method.
+Specifically, this technique is only applicable to NAT that follows endpoint independent mapping behavior.&lt;/p&gt;
+&lt;h2 id=&#34;next-story&#34;&gt;Next Story&lt;/h2&gt;
+&lt;p&gt;The NAT traversal techniques we have discussed today have different applicable situations and they all have different pros and cons.
+Therefore, people in our field use these methods in combination.
+Next time we&amp;rsquo;ll look have a closer look on &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;, which is the most expensive but the most reliable communication method to move beyond NAT.&lt;/p&gt;</content><author><name>Swen Mun</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry></feed>

@@ -1,0 +1,669 @@
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="ko"><title>플라네타리움 엔지니어링 스낵</title><link rel="self" href="https://snack.planetarium.dev/kor/index.xml"/><link rel="alternate" href="https://snack.planetarium.dev/kor/" title="플라네타리움 엔지니어링 스낵"/><link rel="alternate" href="https://snack.planetarium.dev/eng/" hreflang="en" title="Planetarium Engineering Snack"/><updated>2019-10-04T00:00:00&#43;00:00</updated><id>https://snack.planetarium.dev/kor/</id><entry><title>Libplanet 0.6 릴리스</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/10/libplanet-0.6/" title="Libplanet 0.6 릴리스"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/10/libplanet-0.6/" hreflang="en" title="Libplanet 0.6 Released"/><id>https://snack.planetarium.dev/kor/2019/10/libplanet-0.6/</id><published>2019-10-04T00:00:00&#43;00:00</published><updated>2019-10-04T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;의 여섯 번째 마이너 버전인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.6.0&#34;&gt;0.6 버전&lt;/a&gt;을 릴리스했습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 분산 P2P로 돌아가는 온라인 멀티플레이어 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나 데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;0.6 버전에서는 Libplanet의 네트워크 구성과 관련한 큰 변화가 있었고, 잘 관측되지 않았던 버그들을 다수 수정했습니다. 이 글에서는 0.6 버전의 주요 변경 사항들에 대해 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;kademlia-분산-해시-테이블-적용&#34;&gt;Kademlia 분산 해시 테이블 적용&lt;/h2&gt;
+&lt;p&gt;기존의 Libplanet에서는 각 피어가 네트워크상의 모든 피어들을 전부 관리했습니다. 생성한 데이터를 전파하는 블록체인의 특성상 이와 같은 방법은 네트워크에 적은 수의 피어들이 접속해 있다면 그럭저럭 작동하지만, 피어의 수가 많을 때는 네트워크 통신 문제가 생기게 됩니다.&lt;/p&gt;
+&lt;p&gt;위 문제를 해결하여 더욱 많은 피어들을 관리하기 위해 분산 해시 테이블 기법의 하나인 Kademlia 프로토콜이 적용되었습니다. Kademlia 분산 해시 테이블의 작동 원리가 궁금하시다면 &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/kor/2019/09/kademlia/&#34;&gt;Kademlia 분산 해시 테이블 적용기&lt;/a&gt;&lt;/cite&gt;를 참고해 주세요.&lt;/p&gt;
+&lt;h2 id=&#34;트랜잭션-전파-방식-변경&#34;&gt;트랜잭션 전파 방식 변경&lt;/h2&gt;
+&lt;p&gt;어떤 클라이언트가 트랜잭션을 생성했을 때 해당 클라이언트는 자신의 라우팅 테이블이 가진 있는 피어들에 해당 데이터를 전파하고, 이를 통해 블록체인 네트워크상의 모든 피어가 동기화됩니다.&lt;/p&gt;
+&lt;p&gt;기존 Libplanet은 트랜잭션을 일정 주기마다 전파하는 방식으로 작동했었고, 각 피어가 네트워크 위에 존재하는 모든 피어들의 정보를 갖고 있었기 때문에 한 번의 전파로 모든 피어가 동기화되었습니다. 그러나 Kademlia 분산 해시 테이블이 적용되면서 한 번의 전파만으로는 모든 피어가 동기화되었음을 보장할 수 없게 되었습니다. 각 피어는 전파받은 데이터를 다시 전파하는 방식으로 네트워크에 퍼트리는데, 트랜잭션 전파가 일정 주기마다 실행되었기에 운이 나쁘다면 네트워크가 동기화되는 데 많은 시간이 소요되었습니다.&lt;/p&gt;
+&lt;p&gt;따라서 이 패치에서는 트랜잭션을 전파받았을 때 즉시 전파하게 로직을 수정하여 네트워크 동기화 과정이 오래 지연되는 것을 방지하였습니다.&lt;/p&gt;
+&lt;h2 id=&#34;한-블록-내-트랜잭션들의-실행-순서-보장&#34;&gt;한 블록 내 트랜잭션들의 실행 순서 보장&lt;/h2&gt;
+&lt;p&gt;한 블록 안에 여러 개의 트랜잭션이 포함될 때, 모든 클라이언트에서 같은 순서로 액션이 실행하는 것을 보장해 주어야 합니다. 그러면서도 블록을 마이닝 하기 전까지는 그 실행 순서를 예측할 수 없어야 합니다.&lt;/p&gt;
+&lt;p&gt;이번 업데이트에서는 위의 조건을 만족하기 위해 블록의 트랜잭션을 담을 때, 블록의 &lt;code&gt;Hash&lt;/code&gt; 값과 트랜잭션의 &lt;code&gt;Id&lt;/code&gt;를 이용해 순서를 정렬하여 모든 클라이언트에서 액션이 같은 순서로 실행되는 것이 보장될 수 있게 하였습니다.&lt;/p&gt;
+&lt;h2 id=&#34;비동기-블록-마이닝&#34;&gt;비동기 블록 마이닝&lt;/h2&gt;
+&lt;p&gt;Libplanet은 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%EC%9E%91%EC%97%85_%EC%A6%9D%EB%AA%85_%EC%8B%9C%EC%8A%A4%ED%85%9C&#34;&gt;작업 증명 시스템&lt;/a&gt;을 기반으로 블록을 합의하기 때문에, 블록을 생성하는 마이닝 과정에서 다량의 CPU 자원을 소모합니다. 기존에는 블록의 &lt;code&gt;Nonce&lt;/code&gt;를 찾는 &lt;code&gt;Hashcash.Answer()&lt;/code&gt; 함수가 동기 함수였기 때문에 실행 중인 스레드가 차단되었고, 작업을 도중에 중단하는 것이 어려웠습니다.&lt;/p&gt;
+&lt;p&gt;이번 패치를 통해 &lt;code&gt;BlockChain&amp;lt;T&amp;gt;.Mine()&lt;/code&gt;이 비동기 함수가 되어 사용자가 &lt;code&gt;CancellationToken&lt;/code&gt;을 주어 원하는 시점에 중단시킬 수 있게 되었습니다. 또한 마이닝 도중 블록체인의 팁이 변경되었을 때 외부에서 구독 가능한 &lt;code&gt;BlockChain&amp;lt;T&amp;gt;.TipChanged&lt;/code&gt; 이벤트가 불리고, 해당 이벤트가 발생할 시 진행하던 마이닝이 중단되게 됩니다.&lt;/p&gt;
+&lt;h2 id=&#34;그-외&#34;&gt;그 외&lt;/h2&gt;
+&lt;p&gt;그 외의 여러 가지 변경 사항은 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.6.0&#34;&gt;전체 변경 내용&lt;/a&gt;에서 확인하실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;이번 변경 사항이나 Libplanet에 대해 궁금한 점이 있으시다면 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 방문해 주세요!&lt;/p&gt;</content><author><name>고찬혁</name><uri>https://github.com/limebell</uri><email>lime@planetariumhq.com</email></author></entry><entry><title>저희와 함께 Hacktoberfest에 참가해봅시다!</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/hacktoberfest/" title="저희와 함께 Hacktoberfest에 참가해봅시다!"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/hacktoberfest/" hreflang="en" title="Join Us for Hacktoberfest!"/><id>https://snack.planetarium.dev/kor/2019/09/hacktoberfest/</id><published>2019-09-26T00:00:00&#43;00:00</published><updated>2019-09-26T00:00:00&#43;00:00</updated><content type="html">
+&lt;div style=&#34;display: block; margin: auto; margin-top: 30px; width: 500px;&#34;&gt;&lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;&lt;img src=&#34;_hacktoberfest.png&#34; width=&#34;500&#34;&gt;&lt;/a&gt;&lt;/div&gt;
+&lt;p&gt;안녕하세요, 어느새 Hacktoberfest의 달, 10월이 찾아왔습니다.&lt;/p&gt;
+&lt;p&gt;혹시 &lt;dfn&gt;&lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;Hacktoberfest&lt;/a&gt;&lt;/dfn&gt;라는 행사를 들어보셨나요? Hacktoberfest는 10월 1일부터 31일까지 한 달 동안 진행되는 오픈 소스 행사입니다. 전 세계 모두에게 열려있으며 10월 내라면 언제든지 참여할 수 있고, 깃허브 공개 저장소에 4개의 풀 리퀘스트를 제출하면 됩니다.&lt;/p&gt;
+&lt;p&gt;4개의 풀 리퀘스트를 올리면 DigitalOcean 같은 주최측에서 제공하는 티셔츠 혹은 스티커를 받으실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;저희 팀도 올해 &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet&lt;/a&gt; 프로젝트들로 참가합니다!&lt;/p&gt;
+&lt;h2 id=&#34;그래서-어떻게-시작해야-하죠&#34;&gt;그래서 어떻게 시작해야 하죠?&lt;/h2&gt;
+&lt;p&gt;Hacktoberfest에 참가하고 싶지만 정작 어떤 걸로 풀 리퀘스트를 올려서 기여해야 할지 막막하실 것입니다.&lt;/p&gt;
+&lt;p&gt;그래서 Hacktoberfest를 통해 새롭게 기여하려는 분들께 시작하기 적합한 이슈에 &lt;q&gt;&lt;em&gt;hacktoberfest&lt;/em&gt;&lt;/q&gt; 라벨을 달아 두었습니다.
+그러니 여러분은 &lt;q&gt;hacktoberfest&lt;/q&gt; 라벨이 달려있는 이슈들 중 마음에 드는 것을 고르시고 작업을 시작한다는 댓글을 남기시면 됩니다.
+어떤 이슈들이 있는지 저희 프로젝트인 &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet Explorer&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend/issues?q=label:hacktoberfest+is:open+is:issue&#34;&gt;Libplanet Explorer Frontend&lt;/a&gt;의 이슈 트래커를 살펴봐 주세요.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;hacktoberfest-issues.png&#34;
+alt=&#34;hacktoberfest 라벨이 붙은 이슈들&#34; width=&#34;500&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;&lt;q&gt;hacktoberfest&lt;/q&gt; 라벨이 붙은 이슈들&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;작업을 시작하게 되면 댓글이나 채팅을 통해 다른 오픈 소스 기여자들과 이야기를 나누시게 될 텐데요.
+만약 오픈 소스 프로젝트에 참여하는 것이 처음이어도 메인테이너들을 비롯한 다른 기여자들이 도와줄 것입니다.&lt;/p&gt;
+&lt;p&gt;상품 수령이나 기타 정보 같은 자세한 내용은 &lt;a href=&#34;https://hacktoberfest.digitalocean.com/&#34;&gt;Hacktoberfest 공식 사이트&lt;/a&gt;를 참고하시면 좋을 것 같습니다.&lt;/p&gt;
+&lt;h2 id=&#34;질문-및-대화&#34;&gt;질문 및 대화&lt;/h2&gt;
+&lt;p&gt;Hacktoberfest 기간 동안 기여하면서 궁금한 점이 생기거나 어려움을 겪고 계시다면 댓글로 이야기 나눌 수도 있지만 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 들어오셔서 같이 소통하면 좋을 것 같습니다! 물론 Hacktoberfest가 끝난 후라도 언제든 환영입니다.&lt;/p&gt;</content><author><name>이도건</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>Kademlia 분산 해시 테이블 적용기</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/kademlia/" title="Kademlia 분산 해시 테이블 적용기"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/kademlia/" hreflang="en" title="Applying Kademlia Distributed Hash Table to Libplanet"/><id>https://snack.planetarium.dev/kor/2019/09/kademlia/</id><published>2019-09-17T00:00:00&#43;00:00</published><updated>2019-09-17T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀의 고찬혁입니다. 이번에는 분산 P2P 네트워크를 효율적으로 구성하기 위한 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%EB%B6%84%EC%82%B0_%ED%95%B4%EC%8B%9C_%ED%85%8C%EC%9D%B4%EB%B8%94&#34;&gt;분산 해시 테이블&lt;/a&gt; 기법 중 하나인 &lt;a href=&#34;https://en.wikipedia.org/wiki/Kademlia&#34;&gt;Kademlia&lt;/a&gt;가 무엇인지 간단하게 설명드리고, 왜 이를 저희 프로젝트인 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;에 적용하게 되었는지에 대해서 간단히 말해보는 시간을 가지려고 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;kademlia가-무엇인가요&#34;&gt;Kademlia가 무엇인가요?&lt;/h2&gt;
+&lt;p&gt;분산 해시 테이블은 데이터를 네트워크 상의 노드들에 분산하여 저장하여 관리하는 기술입니다. 네트워크 상에서 데이터를 찾을 때 그 데이터를 갖고 있는 노드를 찾아 값을 요청하여 각 노드가 받는 부하를 줄이는데 큰 역할을 합니다.&lt;/p&gt;
+&lt;p&gt;분산형 해시 테이블을 구현하는 여러 종류의 구현체들은 네트워크 상의 노드들을 각각 다른 방법으로 자신의 라우팅 테이블에 저장합니다. 그렇다면 그 중 Kademlia는 분산 해시 테이블을 어떻게 구현하고 있을까요? 이에 대해 설명하기 앞서서 쉽게 이해하실 수 있게 간단한 예시를 들어보겠습니다. 2008년에 미국에 LA에 거주했던 재미 교포인 김씨의 얘기를 해보죠. 그는 오랜만에 한국에 있는 친구를 만나기 위해 한국을 방문했고, 이제 막 인천 국제 공항에 내렸습니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;친구 집으로 가고 싶은데, 주소만 보고는 어디인지 잘 모르겠는걸.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;저런, 김씨가 길을 잃은 것 같네요. 2019년이었다면 스마트폰을 꺼내 주소를 입력해 찾아갔겠지만, 아쉽게도 2008년에는 스마트폰이 많이 보급되지 않아 김씨는 스마트폰을 갖고 있지 않았습니다. 김씨는 가지고 유일한 정보인 주소를 다시 유심히 살펴봅니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;서울특별시 종로구 세종로 1-91번지&lt;/em&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;딱히 특별한 수가 없던 김씨는 우선 서울특별시를 찾아갔습니다. 그리고 그 곳에서 사람들을 잡고 길을 물어보지만, 위 주소를 정확히 알고 있는 사람은 많지 않군요. 김씨는 전략을 바꿔 종로구를 가려면 어떻게 해야 하는지 물어보기 시작합니다. 종로구를 아는 사람은 꽤 많았고, 우여곡절 끝에 종로구에 도착했습니다. 이제 세종로에 대해서 물어볼 차례군요!&lt;/p&gt;
+&lt;p&gt;김씨는 이처럼 정확한 위치를 알지 못했지만 점점 범위를 좁혀가며 친구의 집에 도착했는데요, Kademlia를 적용한 네트워크의 각 피어도 이렇게 피어들의 정보를 유지하고, 탐색합니다.&lt;/p&gt;
+&lt;p&gt;네트워크 상의 피어들은 가상의 주소를 갖습니다. &lt;em&gt;&amp;ldquo;서울특별시 종로구 세종로 1-91번지&amp;rdquo;&lt;/em&gt;와 같은 지리적 주소가 아닌 임의로, 혹은 정해진 규칙에 따라 배정된 일련의 바이트들이죠. 거리 개념 역시 실제 피어간에 물리적인 거리가 아닌, 두 피어의 주소값의 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%EB%B0%B0%ED%83%80%EC%A0%81_%EB%85%BC%EB%A6%AC%ED%95%A9#%EB%B9%84%ED%8A%B8%EA%B0%84_%EB%B0%B0%ED%83%80%EC%A0%81_%EB%85%BC%EB%A6%AC%ED%95%A9&#34;&gt;배타적 논리합&lt;/a&gt;으로 정의합니다.&lt;/p&gt;
+&lt;p&gt;Kademlia 프로토콜을 적용한 피어는 자신의 라우팅 테이블에 네트워크 상의 다른 모든 피어들의 정보를 담는 대신, 그 피어들을 위에서 정의한 거리에 따라 분류해 각 거리 범위당 제한된 개수의 피어만 저장합니다. 거리가 최소 2&lt;sup&gt;i&lt;/sup&gt;에서 최대 2&lt;sup&gt;i+1&lt;/sup&gt; 사이의 피어들은 라우팅 테이블의 i번째 행에 저장하는 식으로요. 이렇게 선택적으로 피어들의 정보를 라우팅 테이블에 저장하게 되면 어떤 피어 A의 라우팅 테이블에 피어 B가 포함되어 있지 않더라도, 자신이 알고있는 피어들 중 피어 B와 가장 가까운 피어에 정보를 요청하고, 그 피어는 다시 자신의 라우팅 테이블 내의 피어들 중 가장 근접한 피어에 요청을 하는 작업을 반복하다보면 결국 피어 B를 찾아낼 수 있을 것입니다.&lt;/p&gt;
+&lt;h2 id=&#34;kademlia를-적용한-이유가-무엇인가요&#34;&gt;Kademlia를 적용한 이유가 무엇인가요?&lt;/h2&gt;
+&lt;p&gt;서버가 없이 통신하는 P2P 네트워크를 구성하기 위해서는 모든 피어간에 통신이 보장되어야 합니다. 그러나 모든 피어가 서로 직접적으로 연결되어 있어야 하는 것은 아니죠. 여기 세 개의 피어 A, B 그리고 C가 있습니다.&lt;/p&gt;
+&lt;p&gt;기존 Libplanet에서는 다음과 같이 네트워크를 구성했죠. 모든 피어가 서로 연결되어 있는 구성이었습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;1.png&#34;
+alt=&#34;모든 피어가 서로 연결되어 있다.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;모든 피어가 서로 연결되어 있다.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;그러나 이렇게 네트워크를 구성한다면 네트워크의 규모가 작을 때는 큰 문제가 되지 않지만, 피어의 수가 1000개, 아니면 10000개라면 그 만큼의 업로드를 매 메시지를 네트워크에 전파할 때마다 해야 하기에 많은 부하가 걸리게 됩니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;2.png&#34;
+alt=&#34;과도한 송신량에 과부하가 걸린 피어.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;과도한 송신량에 과부하가 걸린 피어.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Kademlia를 이용하여 노드를 탐색해 만든 라우팅 테이블의 각 행에는 자신으로부터 거리가 같은 범위 내에 있는 피어들로 구성될 것입니다. 데이터를 전파할 때 라우팅 테이블의 각 행에서 피어들을 선택하여 메시지를 보내고, 메시지를 받은 피어가 그 메시지를 다시 자신의 라우팅 테이블의 각 행에서 선택한 피어에 보낸다면, 결과적으로 네트워크 상의 모든 피어들은 메시지를 받게 될 것입니다. 이렇게 하면 n개의 피어가 네트워크 상에 존재할 때 한 피어는 log(n)번만 메시지를 보내게 될 것이고, 네트워크 부하가 하나의 피어에 집중되는 것을 막을 수 있겠죠.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;3.png&#34;
+alt=&#34;메시지를 전파하는 네트워크.&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;메시지를 전파하는 네트워크.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;마치며&#34;&gt;마치며&lt;/h2&gt;
+&lt;p&gt;게임을 운영하는 데 있어 유저들이 실행하는 액션이 빠르게 실행된다는 느낌을 주기 위해서는 그 액션이 포함된 트랜잭션을 담는 블록을 자주 생성해야겠죠. 블록을 자주 생성할수록 마이너가 받는 네트워크 부하량도 커질 것입니다. 그런 만큼 네트워크가 커질 것을 대비해 분산 해시 테이블의 적용이 필요했고, 실제로 규모를 올려서 테스트를 진행했을 때 하나의 피어에 걸리는 네트워크 부하가 감소하는 수확이 있었습니다.&lt;/p&gt;
+&lt;p&gt;Kademlia 분산 해시 테이블이나 Libplanet에 대해 더 궁금한 점이 있으시다면 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러 오세요!&lt;/p&gt;</content><author><name>고찬혁</name><uri>https://github.com/limebell</uri><email>lime@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.5 릴리스</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/09/libplanet-0.5/" title="Libplanet 0.5 릴리스"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/09/libplanet-0.5/" hreflang="en" title="Libplanet 0.5 Released"/><id>https://snack.planetarium.dev/kor/2019/09/libplanet-0.5/</id><published>2019-09-06T00:00:00&#43;00:00</published><updated>2019-09-06T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;의 다섯 번째 마이너 버전인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.0&#34;&gt;0.5 버전&lt;/a&gt;, 그리고 그 패치 버전인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.1&#34;&gt;0.5.1&lt;/a&gt; 및 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.2&#34;&gt;0.5.2&lt;/a&gt; 버전을 릴리스했습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 분산 P2P로 돌아가는 온라인 멀티플레이어 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나 데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;0.5 버전에서는 Libplanet과 함께 만들고 있는 게임의 테스트 과정에서 광범위한 성능 및 안정성 개선이 있었습니다. 이 글에서는 그러한 0.5 버전의 주요 변경 사항들에 대해 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;abbr-title-initial-block-download-ibd-abbr-속도-개선&#34;&gt;&lt;abbr title=&#34;Initial Block Download&#34;&gt;IBD&lt;/abbr&gt; 속도 개선&lt;/h2&gt;
+&lt;p&gt;이전까지의 &lt;a href=&#34;https://bitcoin.org/en/glossary/initial-block-download&#34;&gt;IBD&lt;/a&gt;(밀린 블록 다운로드)는 블록이 조금만 많이 쌓여도 굉장히 오래 걸리는 작업이었습니다. 블록들을 다운받은 후 최종 상태를 첫 블록에서부터 스스로 연산하여 얻었어야 했었기 때문이죠.&lt;/p&gt;
+&lt;p&gt;하지만 신뢰할 수 있는 노드가 있다면 그 노드로부터 미리 연산돼 있는 결과를 받아와 연산에 드는 시간 효과적으로 줄일 수도 있을 것입니다.&lt;/p&gt;
+&lt;p&gt;그래서 0.5 버전 부터는 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.Swarm-1.html#Libplanet_Net_Swarm_1_PreloadAsync_System_IProgress_Libplanet_Net_PreloadState__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Threading_CancellationToken_&#34;&gt;&lt;code&gt;Swarm&amp;lt;T&amp;gt;.PreloadAsync()&lt;/code&gt;&lt;/a&gt;에 신뢰할 수 있는 노드들을 인자로 넘겨주어 신뢰할 수 있는 노드들로 부터 이미 연산되어 있는 최근 상태 값들을 받아와 저장, 사용할 수도 있게 되었습니다.&lt;/p&gt;
+&lt;p&gt;만약 신뢰할 수 있는 노드들이 없거나 다른 이유로 그 과정에 실패했을 때에는 기존과 같이 직접 연산해서 사용합니다.&lt;/p&gt;
+&lt;h2 id=&#34;irandom-nextdouble-제거&#34;&gt;&lt;code&gt;IRandom.NextDouble()&lt;/code&gt; 제거&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.microsoft.com/en-us/dotnet/api/system.double?view=netstandard-2.0#remarks&#34;&gt;&lt;code&gt;System.Double&lt;/code&gt;의 .NET Standard 공식 문서&lt;/a&gt;의 일부를 인용하면 다음과 같은 내용을 볼 수 있습니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;또한, &lt;code&gt;Double&lt;/code&gt; 값의 산술 연산 및 대입 결과는 &lt;code&gt;Double&lt;/code&gt; 타입의 정밀도 유실 때문에 플랫폼에 따라 다소 달라질 수 있습니다. 예를 들어, &lt;code&gt;Double&lt;/code&gt; 값 리터럴을 대입한 결과는 32 비트와 64 비트 버전의 .NET 프레임워크에서 서로 다를 수 있습니다.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;위와 같이 Double의 산술 연산 및 대입은 결정적이지 않은 결과를 유발할 수 있습니다. 이 때문에 0.5 버전 부터는 &lt;a href=&#34;https://github.com/planetarium/libplanet/pull/419&#34;&gt;&lt;code&gt;IRandom.NextDouble()&lt;/code&gt;&lt;/a&gt;을 제공하지 않기로 결정하였습니다.&lt;/p&gt;
+&lt;p&gt;이에 관한 자세한 내용은 &lt;a href=&#34;https://randomascii.wordpress.com/2013/07/16/floating-point-determinism/&#34;&gt;이 글&lt;/a&gt;을 참고하시기 바랍니다.&lt;/p&gt;
+&lt;h2 id=&#34;블록-액션&#34;&gt;블록 액션&lt;/h2&gt;
+&lt;p&gt;체인을 안전하게 유지하기 위해서는 블록들을 채굴할 마이너들이 필요하고, 그러한 마이너들을 모으고 유지하기 위해 보상을 주어야 할 것입니다.&lt;/p&gt;
+&lt;p&gt;기존에는 마이너들에게 보상을 주기 위해선 직접 마이너가 블록에 리워드 액션을 가진 트랜잭션을 스스로 추가해야 했었지만, 이번 버전부터는 매 블록마다 실행되는 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Blockchain.Policies.IBlockPolicy-1.html#Libplanet_Blockchain_Policies_IBlockPolicy_1_BlockAction&#34;&gt;&lt;code&gt;IBlockPolicy&amp;lt;T&amp;gt;.BlockAction&lt;/code&gt;&lt;/a&gt; 속성이 생겨 이 블록 액션을 통해 마이너에게 보상금을 주는 코드를 구현할 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;filestore-제거&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt; 제거&lt;/h2&gt;
+&lt;p&gt;Libplanet은 저장 계층을 간추리기 위해 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Store.IStore.html&#34;&gt;&lt;code&gt;IStore&lt;/code&gt;&lt;/a&gt;라는 인터페이스와 이를 파일 기반으로 구현한 &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.FileStore.html&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt;&lt;/a&gt;를 비롯하여 &lt;a href=&#34;https://www.litedb.org/&#34;&gt;LiteDB&lt;/a&gt;를 기반으로 구현한 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Store.LiteDBStore.html&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt;&lt;/a&gt;를 추가적으로 &lt;a href=&#34;https://snack.planetarium.dev/kor/2019/07/libplanet-0.4/&#34;&gt;0.4&lt;/a&gt; 버전 부터 제공하고 있었습니다. 그러나 &lt;code&gt;FileStore&lt;/code&gt;는 구현이 내부 구현이 간소하다는 장점에도 불구하고 다음과 같은 한계점도 있었습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;모든 블록과 트랜잭션 그리고 계정의 매 블록마다의 상태 등이 각기 별도의 파일로 저장되는 방식이었기 때문에, 파일이 너무 많이 생겼습니다.&lt;/li&gt;
+&lt;li&gt;별도의 캐시나 버퍼가 없어서 어떤 물리 저장 장치를 쓰느냐에 따라 입출력 성능이 크게 영향을 받았습니다.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LiteDB를 사용하기 시작하면서 &lt;code&gt;FileStore&lt;/code&gt;의 사용 빈도는 줄어들었고, 그에 비해 &lt;code&gt;FileStore&lt;/code&gt;를 지속적으로 관리하기는 어렵다고 판단, 이번 0.5 버전부터는 &lt;code&gt;FileStore&lt;/code&gt; 구현체를 제공하지 않기로 결정하였습니다.&lt;/p&gt;
+&lt;h2 id=&#34;좀-더-상세한-프리로드-진행-상황-전달&#34;&gt;좀 더 상세한 프리로드 진행 상황 전달&lt;/h2&gt;
+&lt;p&gt;위에서 언급했던 IBD 과정을 수행하기 위해서는 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.Swarm-1.html#Libplanet_Net_Swarm_1_PreloadAsync_System_IProgress_Libplanet_Net_PreloadState__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Threading_CancellationToken_&#34;&gt;&lt;code&gt;Swarm&amp;lt;T&amp;gt;.PreloadAsync()&lt;/code&gt;&lt;/a&gt; 메서드를 호출 할 수 있습니다. 이 메서드의 인자로 &lt;code&gt;IProgress&amp;lt;BlockDownloadState&amp;gt;&lt;/code&gt;를 전달하면 이를 통해 블록 다운로드 진행 상황을 알 수 있었지만, 블록 다운로드 이후 액션들을 실행하여 (또는 신뢰할 수 있는 노드로부터) 최종 상태를 구하는 작업의 진척 상황은 알려주지 않았습니다.&lt;br /&gt;
+이로 인해 블록을 모두 다운로드 받은 이후 로딩 메시지에는 &lt;q&gt;100%&lt;/q&gt;라고 보여줌에도 불구하고 여전히 아무런 변화 없이 &lt;q&gt;로딩 중&lt;/q&gt;과 같은 고정된 메시지를 얼마간 동안 보게 된다면, 게임을 플레이하는 유저 입장에서는 기다리는 시간이 매우 지루하게 느껴질 것입니다.&lt;/p&gt;
+&lt;p&gt;하지만 0.5 버전부터는 &lt;code&gt;IProgress&amp;lt;BlockDownloadState&amp;gt;&lt;/code&gt; 대신 &lt;code&gt;IProgress&amp;lt;PreloadState&amp;gt;&lt;/code&gt; 타입의 인자를 받음으로써 프리로드 전반의 진행 상황을 세부적으로 전달받을 수 있도록 되었습니다.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.PreloadState.html&#34;&gt;&lt;code&gt;PreloadState&lt;/code&gt;&lt;/a&gt;를 상속 받은 &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.BlockDownloadState.html&#34;&gt;&lt;code&gt;BlockDownloadState&lt;/code&gt;&lt;/a&gt;, &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.BlockStateDownloadState.html&#34;&gt;&lt;code&gt;BlockStateDownloadState&lt;/code&gt;&lt;/a&gt;,&lt;br /&gt;
+&lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.StateReferenceDownloadState.html&#34;&gt;&lt;code&gt;StateReferenceDownloadState&lt;/code&gt;&lt;/a&gt;, &lt;a href=&#34;https://docs.libplanet.io/0.5.0/api/Libplanet.Net.ActionExecutionState.html&#34;&gt;&lt;code&gt;ActionExecutionState&lt;/code&gt;&lt;/a&gt;를 인자로 받은 &lt;code&gt;IProgress&amp;lt;PreloadState&amp;gt;&lt;/code&gt; 객체를 통해 알림으로써 이용자에게 더 자세한 정보를 제공할 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;그-외&#34;&gt;그 외&lt;/h2&gt;
+&lt;p&gt;그 외의 여러 가지 변경 사항은 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.0&#34;&gt;0.5.0&lt;/a&gt; 및 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.1&#34;&gt;0.5.1&lt;/a&gt;, &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.5.2&#34;&gt;0.5.2&lt;/a&gt; 전체 변경 내역에서 확인하실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;이번 변경 사항이나 Libplanet에 대해 궁금한 점이 있으시다면 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러 오세요!&lt;/p&gt;</content><author><name>이도건</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>파이콘 스프린트에 다녀오다</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/08/pycon-sprint-2019/" title="파이콘 스프린트에 다녀오다"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/08/pycon-sprint-2019/" hreflang="en" title="Libplanet at PyCon 2019 Sprint"/><id>https://snack.planetarium.dev/kor/2019/08/pycon-sprint-2019/</id><published>2019-08-21T00:00:00&#43;00:00</published><updated>2019-08-21T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요 플라네타리움 개발팀에서 &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt;을 개발하고 있는 이도건입니다!&lt;/p&gt;
+&lt;p&gt;지난 8월 15일 부터 8월 16일까지 2일간 열린 &lt;a href=&#34;https://archive.pycon.kr/2019/program/sprint&#34;&gt;파이콘 2019 스프린트&lt;/a&gt;에
+&lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt; 프로젝트의 리더로 저희 팀이 참가했었습니다.
+이 글에서는 파이콘 스프린트에서 받았던 기여들에 대해 간략히 이야기 해보고자 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;기여-소개&#34;&gt;기여 소개&lt;/h2&gt;
+&lt;p&gt;스프린트에 참여해 주신 분들 덕분에 &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt; 프로젝트를 비롯하여 &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt; 프로젝트와 &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer 웹 프론트엔드&lt;/a&gt; 프로젝트에 추가된 기능들이 정말 많습니다!&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt;는 Libplanet을 이용한 게임에서 생성된 블록들을 &lt;a href=&#34;https://graphql.org/&#34;&gt;GraphQL&lt;/a&gt;을 통하여 쉽게 탐색할 수 있도록 도와주는 프로젝트이고
+&lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer 웹 프론트엔드&lt;/a&gt;는 이를 브라우저에서 쉽게 볼 수 있게 하기 위한 TypeScript + React 프로젝트입니다.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./balloon.jpg&#34; alt=&#34;balloon&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;파이콘 준비 위원회 분들께서 PR을 올릴 때마다 풍선을 선물해 주셨는데요.
+저 많은 풍선들을 있게 한 기여 받은 PR들 중 일부를 공유해보고자 합니다!&lt;/p&gt;
+&lt;h3 id=&#34;수상한-블록-다운로드-개수&#34;&gt;수상한 블록 다운로드 개수&lt;/h3&gt;
+&lt;p&gt;다른 노드로부터 해당 노드가 갖고 있지 않은 블록에 어떤 것이 있는 지에 대한 질의를 받았을 때
+일정한 개수로 나누어 블록 해시들을 질의한 노드에게 전달하게 됩니다.&lt;/p&gt;
+&lt;p&gt;하지만 블록 해시를 보내줄 때 첫 응답을 제외하고는 기대와는 다르게 하나 적게 전달해 주는 문제가 있었는데요.
+이 문제의 해결을 위해 &lt;a href=&#34;https://github.com/gurrpi&#34;&gt;백대현&lt;/a&gt; 님께서 기여해 주셨습니다.&lt;/p&gt;
+&lt;p&gt;이를 통해 원래 기대한 만큼의 블록 해시들을 보내고 받을 수 있게 되었습니다.&lt;/p&gt;
+&lt;h3 id=&#34;빈-블록-숨기기&#34;&gt;빈 블록 숨기기!&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt;은 &lt;a href=&#34;https://en.bitcoin.it/wiki/Proof_of_work&#34;&gt;작업 증명(proof of work)&lt;/a&gt; 기반의 가장 긴 체인만을 인정하는 방식을 따르고 있으므로
+트랜잭션이 아무것도 들어있지 않더라도 꾸준히 블록을 생성하게 되는데요.
+블록 자체보다는 그 안에 들어간 트랜잭션들을 살펴봐야 할 때에는 쿼리 결과에 빈 블록들이 섞여 있어서 거추장스러울 수 있습니다.&lt;/p&gt;
+&lt;p&gt;하지만 저희가 관심있는 블록들은 주로 트랜잭션이 들어 있는 블록들이고
+이를 위한 옵션을 &lt;a href=&#34;https://github.com/hyeguiee&#34;&gt;하혜미&lt;/a&gt; 님께서 기여를 통해 추가해 주셨습니다!&lt;/p&gt;
+&lt;p&gt;이를 통해서 원한다면 트랜잭션이 포함되어 있는 블록들만 볼 수 있게 되었습니다.&lt;/p&gt;
+&lt;h3 id=&#34;프론트엔드-도커화&#34;&gt;프론트엔드 도커화!&lt;/h3&gt;
+&lt;p&gt;도커(&lt;a href=&#34;https://docker.io/&#34;&gt;Docker&lt;/a&gt;)는 애플리케이션을 컨테이너를 이용하여 쉽게 만들고 배포하고 실행할 수 있도록 도와주는 도구입니다.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/minhoryang&#34;&gt;양민호&lt;/a&gt; 님께서 해주신 기여를 통하여 &lt;a href=&#34;https://github.com/planetarium/libplanet-explorer-frontend&#34;&gt;Libplanet Explorer 웹 프론트엔드&lt;/a&gt;에 도커파일을 만들어 주신 덕분에
+어디든 쉽게 배포하거나 로컬에서 쉽게 돌려볼 수 있는 환경이 마련되었습니다.&lt;/p&gt;
+&lt;h3 id=&#34;프론트엔드-변경-사항&#34;&gt;프론트엔드 변경 사항!&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet-explorer&#34;&gt;Libplanet Explorer&lt;/a&gt;의 변경 사항에 따라 혹은 별개로 프론트엔드에도 여러 기능이 추가되었습니다.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/AiOO&#34;&gt;안기욱&lt;/a&gt; 님과 &lt;a href=&#34;https://github.com/kanghyojun&#34;&gt;강효준&lt;/a&gt; 님 그리고 &lt;a href=&#34;https://github.com/aucch&#34;&gt;aucch&lt;/a&gt; 님 의 기여로 이제는 트랜잭션들이 없는
+블록들을 필터링하는 옵션, 블록 생성 시간, 난이도 평균 등을 보여줍니다!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./frontend-screenshot.png&#34; alt=&#34;frontend-screeshot&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;또한 트랜잭션의 세부 사항을 볼 수 있도록 개별 트랜잭션 페이지가 생겼습니다!&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./frontend-screenshot-transaction.png&#34; alt=&#34;frontend-screenshot&#34; /&gt;&lt;/p&gt;
+&lt;h2 id=&#34;기여는-언제든지-환영입니다&#34;&gt;기여는 언제든지 환영입니다!&lt;/h2&gt;
+&lt;p&gt;스프린트 기간이 아니더라도 저희 프로젝트에 대한 질문 혹은 기여는 언제든 환영입니다!
+&lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;GitHub 저장소&lt;/a&gt;로 찾아오셔서 이슈에 코멘트를 남겨주셔도 좋고 &lt;a href=&#34;https://discord.gg/wUgwkYW&#34;&gt;저희 디스코드 서버&lt;/a&gt;에 오셔서 물어봐주셔도 좋습니다.&lt;/p&gt;</content><author><name>이도건</name><uri>https://github.com/moreal</uri><email>dogeon@planetariumhq.com</email></author></entry><entry><title>Unity 테스트 러너 도입기</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/07/unity-test-runner/" title="Unity 테스트 러너 도입기"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/07/unity-test-runner/" hreflang="en" title="Experiencing Unity Test Runner"/><id>https://snack.planetarium.dev/kor/2019/07/unity-test-runner/</id><published>2019-07-12T00:00:00&#43;00:00</published><updated>2019-07-12T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀 양천웅입니다. 오늘은 &lt;a href=&#34;https://docs.unity3d.com/Manual/testing-editortestsrunner.html&#34;&gt;Unity 테스트 러너&lt;/a&gt; 도입 시도에 대한 경험담을 얘기하려 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;들어가기-전에&#34;&gt;들어가기 전에&lt;/h2&gt;
+&lt;p&gt;현재 저는 &lt;a href=&#34;https://github.com/planetarium/libplanet.net&#34;&gt;Libplanet&lt;/a&gt;과 Unity를 사용해 블록체인 게임 개발을 하고 있습니다. 팀에 합류한 이후 Unity로 게임을 만든다는 얘기가 나왔을 때는 막연히 &amp;lsquo;GUI 프로그래밍 경험이 없는 것도 아니고, 게임도 GUI 프로그래밍하듯이 하면 되겠지&amp;rsquo;라는 근거 없는 자신감을 가지고 시작했습니다.&lt;br /&gt;
+처음 프로젝트를 시작했을 때는 일정과 Unity에 대한 이해도가 부족한 상황이라 테스트를 포기하고 작업을 진행했지만, 시간이 지날수록 테스트 도입에 대한 필요성이 커졌고 그때 발견한 것이 Unity 테스트 러너였습니다.&lt;/p&gt;
+&lt;p&gt;Unity 테스트 러너는 Unity에서 자체적으로 제공하는 테스트 도구입니다. &lt;a href=&#34;https://nunit.org/&#34;&gt;NUnit&lt;/a&gt; 기반의 테스트를 작성 후, 플레이 모드와 에디트 모드 각각에 테스트 환경을 구축하여&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt; Unity 에디터에서 테스트를 실행할 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;어셈블리-정의-파일-assembly-definition-files&#34;&gt;어셈블리 정의 파일 (assembly definition files)&lt;/h2&gt;
+&lt;p&gt;처음 문서를 보며 테스트 스크립트를 만들었는데 문제를 만났습니다. 다른 라이브러리들은 정상적으로 인식이 되는데, 정작 테스트를 해야 하는 게임 코드의 네임스페이스를 인식 못 하는 것이었습니다.
+원인은 Unity 에디터 실행 시 자동으로 인식되는 &lt;em&gt;Assembly-CSharp.dll&lt;/em&gt;과 다르게, 테스트 스크립트 안에서는 게임 프로젝트의 스크립트를 인식 못 하기 때문이었습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;tests-asmdef.png&#34;
+alt=&#34;Tests.asmdef에 의존성을 추가&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;&lt;em&gt;Tests.asmdef&lt;/em&gt;에 의존성을 추가&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;프로젝트 스크립트를 정의한 어셈블리 정의 파일을 만든 뒤 테스트용으로 정의된 어셈블리 정의 파일&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34;&gt;2&lt;/a&gt;&lt;/sup&gt;에 의존성을 추가해주면 문제가 해결됩니다.&lt;/p&gt;
+&lt;p&gt;자세한 내용은 &lt;a href=&#34;https://docs.unity3d.com/kr/current/Manual/ScriptCompilationAssemblyDefinitionFiles.html&#34;&gt;관련 문서&lt;/a&gt;를 참고해주세요.&lt;/p&gt;
+&lt;h2 id=&#34;어셈블리-정의-파일의-플랫폼-설정&#34;&gt;어셈블리 정의 파일의 플랫폼 설정&lt;/h2&gt;
+&lt;p&gt;어셈블리 정의 파일을 생성한 후에도 문제가 있었는데, 에디터에서는 정상적으로 작동하는 서드파티 라이브러리가 프로젝트 빌드 시에 인식이 안 되면서 깨지는 문제였습니다.
+라이브러리가 Unity 에디터의 확장 기능을 제공하는 경우가 있는데, 어셈블리 정의 파일이 에디터용 기능을 빌드에 포함하려다 발생하는 문제였습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;unity-platform.png&#34;
+alt=&#34;허용 플랫폼을 에디터만 체크&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;허용 플랫폼을 에디터만 체크&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;해결 방법은 간단한데, 해당 라이브러리의 &lt;em&gt;Editor&lt;/em&gt; 폴더 내부에 에디터용 정의 파일을 따로 생성 후, 플랫폼 설정의 &lt;em&gt;Include Platforms&lt;/em&gt; 설정을 &lt;em&gt;Editor&lt;/em&gt;만 허용하도록 변경하는 것입니다.&lt;/p&gt;
+&lt;h2 id=&#34;테스트-실행&#34;&gt;테스트 실행&lt;/h2&gt;
+&lt;p&gt;준비가 끝났다면 이제 테스트를 작성하고 에디터에서 실행해보면 됩니다. 결과는 테스트 러너 창에서 바로 확인이 가능합니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;test-result.png&#34;
+alt=&#34;테스트 실행 결과&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;테스트 실행 결과&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;현재 프로젝트에서도 아직은 테스트가 붙어있지 않은 코드가 더 많지만, Unity 테스트 러너를 도입한 이후에는 가능하면 버그 수정이나 새로운 기능 추가 시 테스트를 함께 작성하고 있으며, 덕분에 매번 게임을 실행해서 확인해야 했던 연출이나 로직 확인에 많은 시간을 줄일 수 있었습니다.&lt;br /&gt;
+Unity를 사용하는 다른 프로젝트에서도 기회가 될 때 도입한다면, 생산성 향상에 많은 도움이 될 것으로 생각합니다. 감사합니다!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;심지어 플레이 모드 테스트는 해당 플랫폼용으로 빌드된 플레이어로 알아서 빌드 후 실행까지 가능합니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:2&#34;&gt;에디터에서 테스트 러너 생성 시 별도 설정을 하지 않았다면 &lt;em&gt;Assets/Tests/Test.asmdef&lt;/em&gt;로 생성됩니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:2&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>양천웅</name><uri>https://github.com/ipdae</uri><email>yang@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.4 릴리스</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/07/libplanet-0.4/" title="Libplanet 0.4 릴리스"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/07/libplanet-0.4/" hreflang="en" title="Libplanet 0.4 Released"/><id>https://snack.planetarium.dev/kor/2019/07/libplanet-0.4/</id><published>2019-07-10T00:00:00&#43;00:00</published><updated>2019-07-10T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;의 네 번째 마이너 버전인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.4.0&#34;&gt;0.4 버전&lt;/a&gt;을 릴리스했습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 분산 P2P로 돌아가는 온라인 멀티플레이어 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나 데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;이 글에서는 0.4 버전의 주요 변경 사항에 대해 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;litedbstore-추가&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt; 추가&lt;/h2&gt;
+&lt;p&gt;Libplanet은 저장 계층을 간추리기 위해 &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.IStore.html&#34;&gt;&lt;code&gt;IStore&lt;/code&gt;&lt;/a&gt;라는 인터페이스와 이를 파일 기반으로 구현한 &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.FileStore.html&#34;&gt;&lt;code&gt;FileStore&lt;/code&gt;&lt;/a&gt;를 기본으로 제공합니다. 이 &lt;code&gt;FileStore&lt;/code&gt;는 작은 규모의 게임에서 사용하기엔 충분했지만, 더 큰 규모의 게임에 적용해보니 다음과 같은 문제가 있었습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;모든 블록과 그 상태, 트랜잭션 그리고 계정의 주소 등이 각기 별도의 파일로 저장되는 방식이었기 때문에, 파일이 너무 많이 생겼습니다.&lt;/li&gt;
+&lt;li&gt;별도의 캐시나 버퍼가 없어 입출력 성능이 떨어졌습니다.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;저희는 이런 문제를 해결하고자 별도의 스토리지 엔진을 사용하는 &lt;code&gt;IStore&lt;/code&gt; 구현의 필요성을 검토하였고, 그 과정에서 선택한 것이 바로 &lt;a href=&#34;https://www.litedb.org/&#34;&gt;LiteDB&lt;/a&gt;입니다. LiteDB는 순수 C#으로 작성되어 있어 .NET 환경에서 이식성이 뛰어나고, 전체 데이터를 단일 파일로 관리할 수 있기 때문에 관리가 쉽습니다.&lt;/p&gt;
+&lt;p&gt;이렇게 작성된 &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Store.LiteDBStore.html&#34;&gt;&lt;code&gt;LiteDBStore&lt;/code&gt;&lt;/a&gt;는 &lt;code&gt;IStore&lt;/code&gt;를 구현하기 때문에, 기존 &lt;code&gt;FileStore&lt;/code&gt;에서 객체 초기화 방법을 제외하곤 완전히 같은 방법으로 사용할 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;간편한-트랜잭션-생성&#34;&gt;간편한 트랜잭션 생성&lt;/h2&gt;
+&lt;p&gt;0.3 버전에 추가된 &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_Nonce&#34;&gt;&lt;code&gt;Transaction&amp;lt;T&amp;gt;.Nonce&lt;/code&gt;&lt;/a&gt;는 안전한 트랜잭션을 만들기 위한 중요한 장치였지만, 동시에 Libplanet을 사용하는 개발자에게는 골칫거리기도 했습니다. &lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;를 만들기 위해서는 반드시 &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Blockchain.BlockChain-1.html#Libplanet_Blockchain_BlockChain_1_GetNonce_Libplanet_Address_&#34;&gt;&lt;code&gt;BlockChain&amp;lt;T&amp;gt;.GetNonce()&lt;/code&gt;&lt;/a&gt;를 통해 현재 서명하는 계정의 정확한 &lt;a href=&#34;https://en.wikipedia.org/wiki/Cryptographic_nonce&#34;&gt;논스&lt;/a&gt;를 얻어와서 사용해야 했기 때문이죠. 이는 단순히 번거로운 절차일 뿐만 아니라, 트랜잭션을 언제 만드느냐에 따라 동시성 문제를 일으키기도 했습니다.&lt;/p&gt;
+&lt;p&gt;하지만 0.4 버전부터는 &lt;a href=&#34;https://docs.libplanet.io/0.4.0/api/Libplanet.Blockchain.BlockChain-1.html#Libplanet_Blockchain_BlockChain_1_MakeTransaction_Libplanet_Crypto_PrivateKey_System_Collections_Generic_IEnumerable__0__System_Collections_Immutable_IImmutableSet_Libplanet_Address__System_Nullable_System_DateTimeOffset__System_Boolean_&#34;&gt;&lt;code&gt;BlockChain&amp;lt;T&amp;gt;.MakeTransaction()&lt;/code&gt;&lt;/a&gt;를 통해 간편하면서 동시성 걱정 없이 트랜잭션을 만들 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;트랜잭션-전파-자동화&#34;&gt;트랜잭션 전파 자동화&lt;/h2&gt;
+&lt;p&gt;이전 버전까지의 Libplanet을 이용한 게임이 트랜잭션을 전파하기 위해선 &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Net.Swarm.html#Libplanet_Net_Swarm_BroadcastTxs__1_System_Collections_Generic_IEnumerable_Libplanet_Tx_Transaction___0___&#34;&gt;&lt;code&gt;Swarm.BroadcastTxs()&lt;/code&gt;&lt;/a&gt;를 직접 호출해야 했습니다. 그런데 네트워크 장애 등의 이유로 트랜잭션 전파에 실패할 수 있기 때문에, 게임 쪽에서 직접 재시도 로직을 구현해야 했었죠.&lt;/p&gt;
+&lt;p&gt;(여전히 &lt;code&gt;.BroadcastTxs()&lt;/code&gt;를 쓸 수도 있지만) 게임은 이제 이를 직접 처리하지 않아도 됩니다. 그 대신에 &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt;을 만들 때 자신의 체인을 넣고 그 체인에 (위에서 소개한 &lt;code&gt;BlockChain&amp;lt;T&amp;gt;.MakeTransaction()&lt;/code&gt;을 사용해서) 트랜잭션을 만들기만 하면 되죠. 나머지는 전파 과정은 &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt;가 알아서 수행합니다.&lt;/p&gt;
+&lt;p&gt;이 과정에서 &lt;code&gt;Swarm&lt;/code&gt;이 직접 체인을 관리하기 때문에 &lt;code&gt;BlockChain&amp;lt;T&amp;gt;&lt;/code&gt;처럼 타입 인자(&lt;code&gt;T&lt;/code&gt;)를 가진 &lt;code&gt;Swarm&amp;lt;T&amp;gt;&lt;/code&gt;으로 변경되었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;그-외&#34;&gt;그 외&lt;/h2&gt;
+&lt;p&gt;그 외의 여러 가지 변경 사항은 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.4.0&#34;&gt;전체 변경 내역&lt;/a&gt;에서 확인하실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;이번 변경 사항이나 Libplanet에 대해 궁금한 점이 있으시다면 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러 오세요!&lt;/p&gt;</content><author><name>문성원</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry><entry><title>Unity 환경에서 단위 테스트 돌리기</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/06/xunit-unity-runner/" title="Unity 환경에서 단위 테스트 돌리기"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/06/xunit-unity-runner/" hreflang="en" title="Unit Testing in Unity Player"/><id>https://snack.planetarium.dev/kor/2019/06/xunit-unity-runner/</id><published>2019-06-28T00:00:00&#43;00:00</published><updated>2019-06-28T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀에서 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;을 만들고 있는 홍민희입니다.
+이 글에서는 게임 엔진으로 널리 쓰이는 Unity 환경에서 단위 테스트를 돌리게
+된 경위와 방법을 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;다양한-환경을-지원하려면&#34;&gt;다양한 환경을 지원하려면&lt;/h2&gt;
+&lt;p&gt;Libplanet은 분산 P2P로 돌아가는 온라인 멀티플레이 게임을 만들 때,
+그러한 게임들이 매번 구현해야 하는 P2P 통신이나 데이터 동기화 등의
+문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;기민한 개선을 이루면서도 &lt;a href=&#34;https://en.wikipedia.org/wiki/Software_regression&#34;&gt;리그레션&lt;/a&gt;이나 코너 케이스에서
+일어나기 쉬운 오작동을 최소화하려면 테스트 코드, 그 중에서도 단위 테스트의
+도움이 필요합니다. 뿐만 아니라, Libplanet은 라이브러리이므로
+이를 이용할 게임이나 앱이 어느 운영체제와 .NET 런타임에서 실행될지
+알기 어렵기 때문에, 가능한 다양한 환경에서 모든 테스트를 실행하는 게 좋습니다.&lt;/p&gt;
+&lt;p&gt;그래서 저희 팀은 Libplanet 저장소에 푸시나 풀 리퀘스트가 생길 때마다
+&lt;a href=&#34;https://dev.azure.com/planetarium/libplanet/_build?definitionId=3&#34;&gt;Azure Pipelines&lt;/a&gt;&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;에서 (Linux, macOS, Windows) ×
+(.NET Framework, Mono, .NET Core) 조합&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:2&#34;&gt;&lt;a href=&#34;#fn:2&#34;&gt;2&lt;/a&gt;&lt;/sup&gt;으로 테스트했습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;before.png&#34;
+alt=&#34;매 빌드마다 테스트했던 환경의 조합&#34; width=&#34;298&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;매 빌드마다 테스트했던 환경의 조합&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;unity-mono&#34;&gt;Unity ≠ Mono&lt;/h2&gt;
+&lt;p&gt;처음에는 Unity가 Mono 런타임을 쓰기 때문에 이 정도로 충분하다고 생각했습니다.
+그런데 Unity에서 Libplanet을 써서 게임을 만들다보니 게임에서만 예기치 못한
+동작을 보는 일이 몇 번이나 겪게 되었고, 저희 팀은 Mono에서 테스트를 통과하는
+것만으로는 Unity에서 잘 돌아간다고 믿기 힘들다는 생각이 점점 커졌습니다.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/Unity-Technologies/mono&#34;&gt;실제로 Unity에서 쓰이는 Mono는 업스트림에 많은 패치가 더해진,
+꽤 오랜 기간 유지되어 온 다운스트림인 것으로 보입니다.&lt;/a&gt;
+게다가 완전히 같은 Mono 런타임에서 테스트한다고 해도,
+Unity 플레이어로 인해 생기는 특수한 조건들이 적지 않다는 정황이 자주 보였습니다.
+특히, &lt;a href=&#34;http://zeromq.org/&#34;&gt;ZeroMQ&lt;/a&gt;의 C# 구현인 &lt;a href=&#34;https://github.com/zeromq/netmq&#34;&gt;NetMQ&lt;/a&gt;처럼, 밖으로 드러나는 API의 단순함에
+비해 훨씬 복잡한 일들이 안쪽에서 일어나는 라이브러리의 오작동이 잦았습니다.&lt;/p&gt;
+&lt;p&gt;이러한 모든 것들을 감안했을 때 Unity만을 위한 테스트 환경을 CI에 더해서
+지속적으로 잘 돌아가는지 확인할 필요가 있다는 합의가 이뤄졌습니다.&lt;/p&gt;
+&lt;h2 id=&#34;unity에서-xunit-net-테스트-돌리기&#34;&gt;Unity에서 xUnit.net 테스트 돌리기&lt;/h2&gt;
+&lt;p&gt;Unity에서 제공되는 단위 테스트 기능이 있기 때문에, 처음에는 이를 쓰려고
+했습니다.
+그런데 Unity에서 제공되는 단위 테스트는 게이머가 실행하는 플레이어 환경이 아닌,
+게임 개발자가 사용하는 에디터 환경에서 실행되는 방식이었고,
+테스트 프레임워크도 &lt;a href=&#34;https://nunit.org/&#34;&gt;NUnit&lt;/a&gt;만 지원하는 문제가 있었습니다.
+&lt;a href=&#34;https://xunit.net/&#34;&gt;xUnit.net&lt;/a&gt; 기반으로 만들어져 있는 Libplanet의 테스트 코드를 모두
+NUnit 기반으로 바꿀까 하는 생각도 해봤지만 아무래도 분량이 적지 않고,
+그렇게 긴 코드를 한 번에 바꾸다 보면 알아채기 힘든 실수도 분명
+생길 게 뻔했습니다.&lt;/p&gt;
+&lt;p&gt;그래서 Unity로 게임 앱이 아닌 테스트 실행기 앱을 만들기로 했습니다.
+다행히 xUnit.net은 테스트 작성을 위한 API와 테스트 실행을 위한 API가 잘
+나뉘어 있었습니다. 아마도 GUI나 CLI 외에도 각종 IDE에 플러그인 형태로 붙는 등,
+다양한 프론트엔드가 있기 때문에 자연스럽게 그런 API를 갖추게 된 것으로 보입니다.
+실제로 NuGet에서 &amp;ldquo;xunit runner&amp;rdquo;로 검색하면 다양한 환경을 위한 xUnit.net
+테스트 실행기가 나옵니다.&lt;/p&gt;
+&lt;p&gt;다만 한 가지 아쉬운 점은, 달리 API 문서가 있지 않기 때문에 xUnit.net의
+소스 코드와 다른 테스트 실행기 소스 코드를 뒤져봐야 했다는 것입니다.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:3&#34;&gt;&lt;a href=&#34;#fn:3&#34;&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;p&gt;xUnit.net의 테스트 실행 API는 대강 이렇습니다. 우선 클라이언트 코드가
+입력으로 넘긴 어셈블리 (&lt;em&gt;.dll&lt;/em&gt;) 파일들에서 테스트라고 여겨지는 클래스들과
+그 클래스에 속한 테스트 메서드들을 찾습니다.
+그리고 나서 그 테스트 메서드 가운데 어떤 테스트를 실행할지는
+클라이언트 코드에서 결정할 수 있습니다. 그 다음에는 그 테스트 케이스들을
+테스트 실행기가 실행합니다.
+테스트의 발견과 실행은 성능을 위해 병렬로 이뤄질 수 있기 때문에
+API는 전형적인 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%EC%A0%9C%EC%96%B4_%EB%B0%98%EC%A0%84&#34;&gt;&lt;abbr title=&#34;inversion of control&#34;&gt;IoC&lt;/abbr&gt;&lt;/a&gt;
+패턴을 따릅니다. &lt;a href=&#34;https://github.com/xunit/xunit/blob/2.4.1/src/xunit.runner.utility/Messages/IMessageSinkWithTypes.cs&#34;&gt;&lt;code&gt;IMessageSinkWithTypes&lt;/code&gt;&lt;/a&gt;라는
+테스트 발견, 실행 시작, 실패, 성공, 스킵 등의 이벤트를 메시지 형태로 받는
+인터페이스를 클라이언트 코드에서 구현하여, 그런 이벤트가 일어났을 때
+화면에 로그를 찍거나 해야 합니다. 저희 팀은 테스트를 병렬로 실행하지
+않았기 때문에 클라이언트 코드만 더 길어지는 덜 자유로운 API가
+답답했습니다. 🙄&lt;/p&gt;
+&lt;h2 id=&#34;unity로-abbr-title-command-line-interface-cli-abbr-프로그램-만들기&#34;&gt;Unity로 &lt;abbr title=&#34;command-line interface&#34;&gt;CLI&lt;/abbr&gt; 프로그램 만들기&lt;/h2&gt;
+&lt;p&gt;Unity로 테스트 실행기를 만들려고 할 때 가장 고민했던 점은, 처음부터
+&lt;abbr title=&#34;continuous integration&#34;&gt;CI&lt;/abbr&gt;에서 실행하기 위한 것이니 만큼
+그래픽 화면이 아닌 &lt;abbr title=&#34;command-line interface&#34;&gt;CLI&lt;/abbr&gt;로
+조작되고 결과가 보여야 한다는 점이었습니다. 그런데 Unity는 게임 등을 만들기 위한
+플랫폼으로, 과연 CLI 앱을 만드는 게 잘 될까 걱정이 앞섰습니다.&lt;/p&gt;
+&lt;p&gt;찾아보니 다행히 Unity에는 &lt;dfn&gt;헤드리스 모드&lt;/dfn&gt;(headless mode)가 있어서,
+이 모드에서는 그래픽 화면이 뜨지 않고 &lt;a href=&#34;https://docs.unity3d.com/ScriptReference/Debug.Log.html&#34;&gt;&lt;code&gt;Debug.Log()&lt;/code&gt;&lt;/a&gt; 메서드로
+찍은 로그도 모두 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%ED%91%9C%EC%A4%80_%EC%8A%A4%ED%8A%B8%EB%A6%BC#%ED%91%9C%EC%A4%80_%EC%B6%9C%EB%A0%A5_(stdout)&#34;&gt;표준 출력&lt;/a&gt;으로 출력된다는 것을 알게 됐습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;unity-build-settings.png&#34;
+alt=&#34;헤드리스 모드를 켜는 Unity 빌드 설정의 Server Build 옵션&#34; width=&#34;356&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;헤드리스 모드를 켜는 Unity 빌드 설정의 &lt;q&gt;Server Build&lt;/q&gt; 옵션&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;Unity에서 제공되는 &lt;code&gt;Debug.Log()&lt;/code&gt; 메서드를 쓰지 않더라도, 일반적인 애플리케이션을
+만드는 것과 같이 .NET 표준에서 제공하는 &lt;a href=&#34;https://docs.microsoft.com/dotnet/api/system.console&#34;&gt;&lt;code&gt;Console&lt;/code&gt;&lt;/a&gt; 클래스도
+정상적으로 작동하는 것을 확인했습니다.&lt;/p&gt;
+&lt;p&gt;다만 &lt;code&gt;Main()&lt;/code&gt; 메서드를 정의할 수 있는 것은 아니기 때문에, 명령행 인자는
+&lt;code&gt;Main()&lt;/code&gt; 메서드의 &lt;code&gt;string[] args&lt;/code&gt; 인자로 받지 못하고, 대신
+&lt;a href=&#34;https://docs.microsoft.com/dotnet/api/system.environment.getcommandlineargs&#34;&gt;&lt;code&gt;Environment.GetCommandLineArgs()&lt;/code&gt;&lt;/a&gt; 메서드로
+얻어야 했습니다. 마찬가지로 프로그램의 종료 역시 &lt;a href=&#34;https://docs.unity3d.com/ScriptReference/Application.Quit.html&#34;&gt;&lt;code&gt;Application.Quit()&lt;/code&gt;&lt;/a&gt;
+메서드를 명시적으로 호출하여 직접 프로세스를 중단시켜야 했습니다.&lt;/p&gt;
+&lt;p&gt;마지막으로, Unity 플레이어 자체에서 출력되는 메시지들이 있었지만, 이 출력을 막는
+방법을 찾지 못했기 때문에 그대로 마무리할 수밖에 없었습니다.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:4&#34;&gt;&lt;a href=&#34;#fn:4&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;noisy-output.png&#34;
+alt=&#34;맨 처음과 마지막에 출력되는 Unity 플레이어 자체의 메시지는 결국 없애지 못했다.&#34; width=&#34;739&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;맨 처음과 마지막에 출력되는 Unity 플레이어 자체의 메시지는 결국 없애지 못했다.&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;빌드-자동화&#34;&gt;빌드 자동화&lt;/h2&gt;
+&lt;p&gt;Unity로 CLI 앱을 빌드하고 이를 윈도 뿐만 아니라 Linux나 macOS용으로도
+만드는 방법을 문서로 써보니 그 과정이 까다롭고, 또 작업자에 따라 일정하지
+않은 결과가 나오기 쉬워 보였습니다. 그래서 저장소에 태그를 만들어서 푸시하면
+자동으로 Linux, macOS, Windows용 빌드가 나오도록 만들기로 했습니다.&lt;/p&gt;
+&lt;p&gt;본격적인 CI를 붙일까 하다가, 단순히 빌드만 나오면 되겠다는 생각에
+&lt;a href=&#34;https://github.com/features/actions&#34;&gt;GitHub Actions&lt;/a&gt;를 이용해 구성했습니다.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://medium.com/@neuecc/using-circle-ci-to-build-test-make-unitypackage-on-unity-9f9fa2b3adfd&#34;&gt;가와이 요시후미(河合宜文) 씨가 쓴 글&lt;/a&gt;을 참고하여, 모든 빌드 과정을 Docker
+안쪽에서 진행할 수 있었습니다. 이 과정에서 다른 환경에서 겪어보지 못한 다음과 같은
+것들을 겪기도 했습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Unity는 상용 제품이다보니, 라이선스 활성화 과정이 필요했습니다.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;Unity는 에디터와 플레이어의 경계가 다소 모호합니다. 에디터 환경에서
+실행될 코드도 스크립트로 만들 수 있는데, Unity가 앱을 빌드하게 하는
+스크립트를 그 앱의 일부로 포함시킨 뒤, 이를 실행하는 식으로 앱이
+스스로 빌드되게 만듭니다.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;처음에는 세 운영체제를 위한 빌드를 만들기 위해서는 세 운영체제에서 각각
+빌드를 해야 하나 생각했지만, 다행히도 Unity는 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%ED%81%AC%EB%A1%9C%EC%8A%A4_%EC%BB%B4%ED%8C%8C%EC%9D%BC%EB%9F%AC&#34;&gt;크로스 컴파일&lt;/a&gt;을
+잘 지원하고 있어서, Linux에서 macOS 및 Windows용 빌드도 만들 수 있었습니다.&lt;/p&gt;
+&lt;figure&gt;
+&lt;img src=&#34;github-actions.png&#34;
+alt=&#34;GitHub Actions에서 빌드가 되는 모습&#34; width=&#34;823&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;GitHub Actions에서 빌드가 되는 모습&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;마무리&#34;&gt;마무리&lt;/h2&gt;
+&lt;figure&gt;
+&lt;img src=&#34;after.png&#34;
+alt=&#34;Unity 환경에서의 테스트도 더해진 현재의 빌드&#34; width=&#34;298&#34;/&gt; &lt;figcaption&gt;
+&lt;p&gt;Unity 환경에서의 테스트도 더해진 현재의 빌드&lt;/p&gt;
+&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;이렇게 만들어진 Unity용 xUnit.net 테스트 실행기를 Libplanet 프로젝트의
+빌드에 적용했고, 현재 잘 동작하고 있습니다. 잘 동작한다는 의미는,
+과연 Unity 환경에서만 보이는 상이한 동작을 자주 밟아 테스트가 자주
+깨지고 있다는 뜻입니다. 😇 물론, 그러한 버그를 최대한 일찍 발견하고 싶기
+때문에 만든 것이므로 기꺼이 받아들이고 있습니다.&lt;/p&gt;
+&lt;p&gt;이렇게 만들어진 실행기는 코드가 깔끔하게 정리되지는 못했지만,
+&lt;a href=&#34;https://github.com/planetarium/xunit-unity-runner&#34;&gt;GitHub에 오픈 소스로 올렸습니다.&lt;/a&gt;
+실행 파일은 &lt;a href=&#34;https://github.com/planetarium/xunit-unity-runner/releases&#34;&gt;릴리스 페이지&lt;/a&gt;에서 받을 수 있으니, 써보고 싶으신
+분들은 받아서 이용해 보시기 바랍니다!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;2019년 6월 현재 Linux, macOS, Windows를 모두 지원하는 &lt;abbr title=&#34;continuous integration&#34;&gt;CI&lt;/abbr&gt; 서비스로는 &lt;a href=&#34;https://travis-ci.com/&#34;&gt;Travis CI&lt;/a&gt;와 Azure Pipelines가 있습니다. 저희 팀은 처음에 Travis CI를 써왔지만 전체적으로 성능이 좋지 않아 이제는 Azure Pipelines를 쓰게 됐습니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:2&#34;&gt;.NET Framework는 윈도만 지원하기 때문에, 실제로는 9개의 환경이 아닌 7개의 환경에서 테스트하게 됩니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:2&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:3&#34;&gt;.NET은 오래 전부터 &lt;abbr title=&#34;integrated development environment&#34;&gt;IDE&lt;/abbr&gt;가 보편화되었기 때문에 웹에 API 문서를 올려두지 않고, 그냥 소스 코드에 &lt;a href=&#34;https://docs.microsoft.com/dotnet/csharp/programming-guide/xmldoc/&#34;&gt;XML 문서 주석&lt;/a&gt;만 달아두는 프로젝트가 많습니다. 그렇게 달아 둔 문서는 IDE에서 클래스나 메서드가 자동 완성될 때 툴팁으로 작게 표시됩니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:3&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:4&#34;&gt;혹시 방법을 아시는 분이 있다면 알려주시기 바랍니다. 아니면 아예 풀 리퀘스트를 보내주셔도 좋습니다!
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:4&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>홍민희</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>예제로 보는 TURN</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/06/nat_traversal_2/" title="예제로 보는 TURN"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/06/nat_traversal_2/" hreflang="en" title="Understanding TURN through an Example"/><id>https://snack.planetarium.dev/kor/2019/06/nat_traversal_2/</id><published>2019-06-18T00:00:00&#43;00:00</published><updated>2019-06-18T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀 문성원입니다. 지난 시간에 &lt;a href=&#34;https://en.wikipedia.org/wiki/NAT_traversal&#34;&gt;NAT 통과 기법&lt;/a&gt;에 대해서 &lt;a href=&#34;https://snack.planetarium.dev/kor/2019/04/nat_traversal_1/&#34;&gt;소개해 드렸었는데요&lt;/a&gt;. 오늘은 그중에서 &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;을 살펴볼까 합니다.&lt;/p&gt;
+&lt;p&gt;&amp;ldquo;Traversal Using Relays around NAT&amp;rdquo;라는 이름에서 알 수 있듯이 TURN은 공인 IP를 가진 서버가 통신을 원하는 단말들을 중계하는 방식을 일컫습니다. 단순히 기능이나 순서를 나열하는 것으론 이해가 어려울 수 있으니, 저희가 만들고 있는 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;이 실제로 TURN을 사용하는 방식을 예로 설명하도록 하겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;블록-체인과-nat&#34;&gt;블록 체인과 NAT&lt;/h2&gt;
+&lt;p&gt;Libplanet은 블록체인 기술을 게임 개발에 쉽게 사용할 수 있게끔 하는 라이브러리입니다. 많은 블록체인 구현체들은 분산된 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%EB%85%B8%EB%93%9C_(%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC)&#34;&gt;노드(node)&lt;/a&gt;간의 통신에 &lt;a href=&#34;https://ko.wikipedia.org/wiki/P2P&#34;&gt;P2P&lt;/a&gt; 형태의 네트워크를 사용하며, 이는 저희 Libplanet도 마찬가지입니다. 다만 다른 블록체인 구현체들과는 다르게, Libplanet을 통해 블록체인이 구현되는 애플리케이션은 게임입니다. 일반적으로 이러한 게임은 개인용 컴퓨터나 거치형 콘솔, 그리고 스마트폰과 같은 개인용 장비에서 실행되는데, 이런 장비의 대부분은 NAT로 구성된 네트워크 위에서 별도의 공인 IP를 가지지 않습니다. 즉 이러한 장비에서 실행되는 애플리케이션이 P2P 통신을 하려면 NAT를 통과하지 않을 수 없습니다.&lt;/p&gt;
+&lt;p&gt;이때문에 Libplanet은 0.2.0부터 TURN을 이용한 릴레이를 지원합니다. 바로 다음과 같은 과정을 통해서요.&lt;/p&gt;
+&lt;h2 id=&#34;포트-할당&#34;&gt;포트 할당&lt;/h2&gt;
+&lt;p&gt;TURN을 통한 릴레이의 첫 단계는 포트 할당이라고 알려진 단계입니다. NAT 바깥에서 중계를 원하는 노드는 (필요하다면 적절한 인증 정보와 함께) 포트 할당 요청(allocation request)을 TURN 서버로 보냅니다. 적당히 간추리면 대충 이런 내용이겠죠.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;노드: 공인 IP와 포트를 통해 중계를 받고 싶습니다. 적당한 IP와 포트를 할당해주세요.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TURN 서버는 요청이 올바르다면 설정에 따라 적당한 IP와 포트를 골라서 연결을 받을 수 있게 열어 두고 아래와 같은 응답을 보낼 것입니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TURN 서버: 포트를 할당하였습니다. 앞으로 중계할 할 주소는 &lt;code&gt;54.12.1.3:65002&lt;/code&gt;입니다. (논스: &lt;code&gt;xyz&lt;/code&gt;)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;이렇게 포트 할당을 요청한 연결은 &lt;dfn&gt;제어 연결&lt;/dfn&gt;(control connection)로 불리며, 이후 TURN 서버와 노드의 통신에 사용됩니다.
+여기서 한 가지 주의할 점이 TURN 서버가 응답에 포함하는 논스(nonce)인데요. 이 논스는 제어 연결마다 고유하며, 획득한 논스를 이 제어 연결의 모든 요청에 같이 보내줘야 합니다. (혹은 논스 불일치(stale nonce) 에러를 받고 다시 요청하는 방법도 있습니다.)&lt;/p&gt;
+&lt;h2 id=&#34;권한-요청-및-승인&#34;&gt;권한 요청 및 승인&lt;/h2&gt;
+&lt;p&gt;이렇게 할당 받은 IP와 포트(&lt;code&gt;54.12.1.3:65002&lt;/code&gt;)로 다른 노드가 바로 접속할 수 있으면 좋겠지만 아직 한 단계가 더 필요합니다. 바로 권한 요청인데요. 이는 포트를 할당받은 노드가 할당 받은 포트를 어떤 IP의 노드에게 접속 가능하게끔 TURN 서버에 요청하는 것입니다. 권한 요청이 되지 않은 연결은 모두 차단되는데, 이는 중계를 원하는 노드가 접속을 원하는 노드의 IP 정보를 사전에 알고 있어야 함을 뜻합니다.&lt;/p&gt;
+&lt;p&gt;하지만 실생활에서 많은 사용자는 자신의 공인 IP를 알고 있지 않거나 신경쓰지 않기 때문에, 이러한 정보를 직접 전달해야한다는 건 무척이나 어려운 일입니다. 이를 해결하기 위해서 &lt;a href=&#34;https://webrtc.org/&#34;&gt;WebRTC&lt;/a&gt; 같은 사용 예에서는 &lt;a href=&#34;https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling&#34;&gt;시그널링(signalling)&lt;/a&gt; 단계에서 접속할 노드의 IP 정보를 미리 알아내곤 합니다. 한편 Libplanet에서는 STUN 프로토콜을 통해 NAT 뒤에 있는 지를 확인하고, 만약 그렇다면 STUN을 통해 확인된 IP를 공인 IP로 릴레이 된 IP/포트와 함께 다른 노드에 전파합니다. 이러한 정보를 받은 노드는, 릴레이 된 정보로 접속하기에 앞서서 먼저 공인 IP를 통해 권한 요청을 하는 절차를 거칩니다.&lt;/p&gt;
+&lt;p&gt;이렇게 노드가 접속을 원하는 다른 노드의 공인 IP(&lt;code&gt;10.1.1.1&lt;/code&gt;)을 알고 있다면, 권한 요청은 아마 아래와 같을 것입니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;노드: &lt;code&gt;10.1.1.1&lt;/code&gt;에서 &lt;code&gt;54.12.1.3:65002&lt;/code&gt;로 오는 요청을 허가해주세요.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;이런 접근 권한은 300초의 유효기간(lifetime)이 지나면 만료되는데, 이를 방지하기 위해서는 권한을 요청했던 노드가 다시 TURN 서버에게 권한 요청을 해야 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;연결-알림-및-새-연결-요청하기&#34;&gt;연결 알림 및 새 연결 요청하기&lt;/h2&gt;
+&lt;p&gt;이렇게 권한 요청 및 승인까지 끝마치고 나면, 드디어 할당 받은 IP와 포트로 승인된 다른 노드가 접속할 수 있습니다. 다른 노드가 할당된 IP와 포트를 통해 접속하면 TURN 서버는 이를 감지하여 다음과 같은 메시지를 제어 연결로 보냅니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;TURN 서버: &lt;code&gt;10.1.1.1&lt;/code&gt;에서 &lt;code&gt;54.12.1.3:65002&lt;/code&gt;로 연결 시도가 있었습니다. (연결 ID: &lt;code&gt;1234&lt;/code&gt;)&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;TURN 서버에 중계를 요청한 노드가 이 연결을 수락하려면, 제어 연결이 아닌 새로운 연결을 만들어서 TURN 서버에 요청하면 됩니다. 이 때 요청 받은 외부 연결을 구분하기 위해서 연결 알림 메시지의 연결 ID(connection ID)를 보내야 합니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;노드: 연결 &lt;code&gt;1234&lt;/code&gt;에 대한 데이터는 앞으로 이 연결로 전달해주세요.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;이렇게 새롭게 생긴 연결을 &lt;dfn&gt;데이터 연결&lt;/dfn&gt;(data connection)이라고 합니다.
+이후 &lt;code&gt;54.12.1.3:65002&lt;/code&gt;로 보내는 요청은 이 데이터 연결을 통해 전달되며, 해당 IP/포트에 연결된 노드에 응답하고 싶을때도 이 데이터 연결에 전송하면 TURN 서버를 거쳐서 노드에 전달됩니다.&lt;/p&gt;
+&lt;h2 id=&#34;남은-일들&#34;&gt;남은 일들&lt;/h2&gt;
+&lt;p&gt;실제로 응답을 제대로 보내기 위해서는, 앞서 만든 데이터 연결과 Libplanet 노드의 요청–응답용 연결을 다시 중계 할 필요가 있습니다. 이 부분은 노드 안에서만 잘 처리되면 되기 때문에 별도의 프로토콜이나 공개 표준은 정해지지 않았습니다. 만약 TURN 클라이언트가 웹 서버와 별도의 프로세스로 실행된다면 &lt;a href=&#34;https://ko.wikipedia.org/wiki/%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4_%EA%B0%84_%ED%86%B5%EC%8B%A0&#34;&gt;IPC&lt;/a&gt;, 같은 프로세스라면 스레드 간 통신 등을 이용해 이를 적절히 처리해주시면 됩니다. Libplanet에서는 별도 TCP 프록시를 로컬에서 실행하여 이를 릴레이합니다.&lt;/p&gt;</content><author><name>문성원</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.3 릴리스</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/libplanet-0.3/" title="Libplanet 0.3 릴리스"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/libplanet-0.3/" hreflang="en" title="Libplanet 0.3 Released"/><id>https://snack.planetarium.dev/kor/2019/05/libplanet-0.3/</id><published>2019-05-31T00:00:00&#43;00:00</published><updated>2019-05-31T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;의 세번째 마이너 버전인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.3.0&#34;&gt;0.3 버전&lt;/a&gt;을 릴리스했습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 분산 P2P로 돌아가는 온라인 멀티플레이 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나 데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;이 글에서는 0.3 버전의 주요 변경 사항에 대해 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;버전이-다른-노드를-만났을-때-반응하는-api&#34;&gt;버전이 다른 노드를 만났을 때 반응하는 API&lt;/h2&gt;
+&lt;p&gt;0.2 버전부터 &lt;code&gt;Swarm&lt;/code&gt; 생성자에 &lt;code&gt;appProtocolVersion&lt;/code&gt;이 추가되어 노드의 프로토콜 버전을 지정하도록 했습니다.
+이번 0.3 버전에서는 &lt;code&gt;Swarm.DifferentVersionPeerEncountered&lt;/code&gt; 이벤트 핸들러를 통해 버전이 다른
+노드를 만났을 때의 행동을 지정해 줄 수 있습니다.&lt;/p&gt;
+&lt;p&gt;예를 들어 자신보다 높은 프로토콜 버전의 메시지를 받을 경우 게임 앱을 업그레이드하도록 하는 핸들러 등을
+&lt;code&gt;Swarm.DifferentVersionPeerEncountered&lt;/code&gt;로 넘겨줄 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;액션-렌더링-api&#34;&gt;액션 렌더링 API&lt;/h2&gt;
+&lt;p&gt;기존에는 게임에서 액션이 실제로 처리되었는지, 즉 액션의 실행 결과가 &lt;code&gt;GetStates()&lt;/code&gt; 메소드의 결과에 언제 반영되는지 신호(이벤트)를 받을 수 없었습니다.
+따라서 특정 주소의 액션이 처리되었다는 것을 확인하기 위해서는 &lt;a href=&#34;https://ko.wikipedia.org/wiki/폴링_(컴퓨터_과학)&#34;&gt;폴링&lt;/a&gt; 등의 방법을 이용해 해당 주소의 상태가 액션 이후의 상태로 변경되었는지 확인해야 했습니다.
+이런 방식은 구현이 복잡하고 번거로울 뿐 아니라 액션의 처리가 확인될 때까지 주소의 상태를 수차례 가져와야 하므로 성능적인 측면에서도 문제가 있습니다.&lt;/p&gt;
+&lt;p&gt;이런 문제를 해결하기 위해 이번 버전에서는 액션 렌더링 API가 추가되었습니다.
+&lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Render_Libplanet_Action_IActionContext_Libplanet_Action_IAccountStateDelta_&#34;&gt;&lt;code&gt;IAction.Render()&lt;/code&gt;&lt;/a&gt; 메서드 구현을 통해 게임에서는 액션의 결과가 로컬 상태에 반영되는 순간을 이벤트로 받을 수 있게 됩니다.
+또, 다수 체인(majority chain)이 변경되어 처리된 액션이 포함된 블록이 유효하지 않게 될 경우 &lt;a href=&#34;https://docs.libplanet.io/0.3.0/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Unrender_Libplanet_Action_IActionContext_Libplanet_Action_IAccountStateDelta_&#34;&gt;&lt;code&gt;IAction.Unrender()&lt;/code&gt;&lt;/a&gt; 메서드를 통해 이미 렌더링 된 액션을 되돌릴 수 있도록 했습니다.&lt;/p&gt;
+&lt;h2 id=&#34;계정-상태-접근-방법-개선&#34;&gt;계정 상태 접근 방법 개선&lt;/h2&gt;
+&lt;p&gt;이전 버전에서는 계정의 상태를 가져오기 위해 해당 계정의 상태가 마지막으로 갱신된 블록을 찾을 때까지 이전 블록을 순회하는 방법을 사용했습니다.
+이런 방식을 사용하면 해당 주소에 아직 아무런 상태가 기록된 적 없을 경우
+최신부터 제너시스까지 모든 블록을 순회해야 하는 문제점이 있습니다.
+상태가 마지막으로 업데이트된 지 오래되어 그사이 많은 블록이 추가된 주소의 상태를 구할 때도 마찬가지로 많은 블록을 순회해야 하고,
+체인의 길이가 길면 길수록 상태를 확인해야 하는 시간이 늘어나게 됩니다.&lt;/p&gt;
+&lt;p&gt;이번 버전에서는 각 계정의 상태를 저장할 때 해당 주소의 상태를 가지고 있는 블록을 인덱싱하고,
+상태를 조회할 때는 해당 블록을 바로 조회하는 방식으로 성능을 개선하였습니다.&lt;/p&gt;
+&lt;h2 id=&#34;블록-추가-성능-개선&#34;&gt;블록 추가 성능 개선&lt;/h2&gt;
+&lt;p&gt;블록체인에 블록을 추가할 때 수행되는 작업의 개선을 통해 블록 추가 성능을 개선했습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;이미 체인에 추가된 블록에 접근할 때 수행하던 불필요한 블록 검증을 제거했습니다.&lt;/li&gt;
+&lt;li&gt;블록이 추가될 때 전체 체인을 검증하던 방식에서 추가되는 블록만 검증하는 방식으로 변경했습니다.&lt;/li&gt;
+&lt;li&gt;블록 해시가 필요할 때마다 계산하는 대신 블록 생성 때 한번 계산하도록 변경했습니다.&lt;/li&gt;
+&lt;li&gt;블록의 해시를 계산할 때 전체 트랜잭션을 사용하는 대신 트랜잭션 ID를 사용하여 해시 계산 시간을 감소시켰습니다.&lt;/li&gt;
+&lt;li&gt;블록을 추가할 때 여러 번 수행되던 액션 평가를 한 번만 수행되도록 하여 블록 추가 시간을 감소시켰습니다.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;그-외&#34;&gt;그 외&lt;/h2&gt;
+&lt;p&gt;그 외의 여러 가지 변경 사항은 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.3.0&#34;&gt;전체 변경 내역&lt;/a&gt;에서 확인하실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;이번 변경 사항이나 Libplanet에 대해 궁금한 점이 있으시다면 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러 오세요!&lt;/p&gt;</content><author><name>이승훈</name><uri>https://github.com/earlbread</uri><email>seunghun@planetariumhq.com</email></author></entry><entry><title>Libplanet 팀이 스프린트서울에 참가합니다</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/sprintseoul/" title="Libplanet 팀이 스프린트서울에 참가합니다"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/sprintseoul/" hreflang="en" title="Libplanet Team will participate in Sprint Seoul"/><id>https://snack.planetarium.dev/kor/2019/05/sprintseoul/</id><published>2019-05-20T00:00:00&#43;00:00</published><updated>2019-05-20T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;오는 6월 29일(토)에 서울 강남에서 모일 &lt;a href=&#34;https://sprintseoul.org/&#34;&gt;스프린트서울&lt;/a&gt;이라는 행사를 아시나요?
+오픈 소스에 열정이 있는 분들이 모여서 오픈 소스 프로젝트에 코드나 문서 등을 기여해보는 행사로,
+평소에 오픈 소스에 흥미는 있었지만 기여해 볼 계기는 없었던 분들도 이 모임에 오셔서
+첫 오픈 소스 기여를 경험할 수 있습니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;스프린트는 오픈 소스 프로젝트의 작성자 또는 기여자와 함께 짧은 시간 동안 함께 문제를 찾고 해결하며,
+해당 오픈 소스 프로젝트에 대해 보다 깊게 알아가는 행사입니다.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;저희 팀은 이미 지난 4월에도 참가한 바 있으며, 6월 29일에도 참가합니다.
+저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt; 프로젝트 리더로 참가하며,
+이 행사를 통해 여러분들의 기여를 기대하고 있습니다.&lt;/p&gt;
+&lt;p&gt;스프린트 참가 신청은 6월 20일까지만 받는다고 하며, 신청 양식 및 스프린트서울의 상세한 안내는
+&lt;a href=&#34;https://sprintseoul.org/&#34;&gt;공식 홈페이지&lt;/a&gt;에서 살펴보실 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;libplanet-프로젝트-소개&#34;&gt;Libplanet 프로젝트 소개&lt;/h2&gt;
+&lt;p&gt;Libplanet이 어떤 프로젝트인지 궁금하실 분들을 위해,
+&lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/kor/2019/04/libplanet-0.2/&#34;&gt;Libplanet 0.2 릴리스&lt;/a&gt;&lt;/cite&gt;에서 했던 소개를 인용합니다.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Libplanet은 분산 &lt;abbr title=&#34;Peer-to-Peer&#34;&gt;P2P&lt;/abbr&gt;로 돌아가는 온라인
+멀티플레이 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나
+데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 널리 쓰이는 Unity 엔진과 함께 쓰일 것을 염두에 두고 만들어져,
+현재 C# 언어로 개발되고 있습니다. 물론 Unity 엔진을 쓰지 않더라도 .NET 또는 Mono
+플랫폼으로 구현된 게임이라면 쉽게 붙일 수 있도록, &lt;a href=&#34;https://github.com/dotnet/standard/blob/master/docs/versions/netstandard2.0.md&#34;&gt;.NET Standard 2.0&lt;/a&gt;을 타깃하여
+이식성을 확보하고 있습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet의 또 다른 특징은, 프레임워크나 엔진이 아닌 라이브러리라는 점입니다.
+엔진이나 프레임워크는 게임 프로세스의 진입점(&lt;code&gt;Main()&lt;/code&gt; 메서드)과 주도권을 가져간 채
+허용된 부분에 한해서 게임 프로그래머가 스크립팅할 수 있게 하는 데 반해,
+Libplanet은 게임 프로세스를 선점하지 않으며 게임 프로그래머가 명시적으로
+호출한 곳에서만 비간섭적으로 (unobtrusively) 동작합니다.
+덕분에 Unity 같은 기성 게임 엔진과도 무리 없이 함께 쓸 수 있습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 &lt;a href=&#34;https://www.nuget.org/packages/Libplanet/&#34;&gt;NuGet&lt;/a&gt;에 올라가 있으며, &lt;a href=&#34;https://docs.libplanet.io/&#34;&gt;API 문서&lt;/a&gt;도 있습니다.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;개발-환경&#34;&gt;개발 환경&lt;/h2&gt;
+&lt;p&gt;먼저, 스프린트에 참여하기 위해서는 개발 환경을 설치해야 합니다. 가급적이면 스프린트
+시작 전에 &lt;strong&gt;미리 개발 환경을 설치해 와주시면 감사하겠습니다.&lt;/strong&gt; 어느 프로젝트나 그렇겠지만,
+개발 환경 설치에 시간이 생각보다 많이 들기 때문에, 반나절 가까이 허비하는 경우가 흔합니다.&lt;/p&gt;
+&lt;p&gt;C#은 Python이나 JavaScript 등과 달리 IDE가 없으면 코딩하기 힘든 언어입니다.
+Windows라면 최신 버전의 Visual Studio를 설치하면 되겠지만, 여러 플랫폼에서
+두루 쓸 수 있는 IDE로 Rider나 VS Code를 추천합니다. 아래 문서들은
+Rider 또는 Visual Studio Code를 쓴다는 가정 하에 Libplanet의 개발 환경을
+설치하는 방법을 한국어로 안내하고 있습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://gist.github.com/dahlia/5333634f62509293cd46c0e4ba65b2f5&#34;&gt;Libplanet 개발 환경 설정 (VS Code)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://gist.github.com/dahlia/08f6e659e2266e941ad026f591c30c9a&#34;&gt;Libplanet 개발 환경 설정 (Rider)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;그 외에, Libplanet 저장소의 &lt;em&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet/blob/master/CONTRIBUTING.md&#34;&gt;CONTRIBUTING.md&lt;/a&gt;&lt;/em&gt; 문서는 CLI 도구만을 이용해서 개발하는 아주
+기본적인 개발 환경 설정을 안내합니다. 꼭 자신이 이용하는 에디터를 쓰고 싶은 분들은 이쪽을 읽어주시면
+되겠습니다. 단, 그런 경우 Libplanet 커미터들이 당일 행사장에서 도움을 드리기 힘들 수 있기 때문에,
+꼭 미리 개발 환경을 잘 설치해서 오시는 게 좋습니다.&lt;/p&gt;
+&lt;h2 id=&#34;살펴볼-만한-이슈&#34;&gt;살펴볼 만한 이슈&lt;/h2&gt;
+&lt;p&gt;처음 기여하시는 분들을 위한 &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22&#34;&gt;초심자용 이슈&lt;/a&gt;들을 모아놨습니다.
+프로젝트 구조를 자세히 파악하지 못한 상태에서도 깊게 들어가지 않고 해볼 수 있을 만한 것들입니다.&lt;/p&gt;
+&lt;p&gt;어떤 기여를 어떻게 해야 할지 고민이 되는 분들은, 이승훈 님께서 쓰신
+&lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/kor/2019/05/first-contribution/&#34;&gt;Libplanet 처음 기여하기&lt;/a&gt;&lt;/cite&gt; 경험담도 도움이 될 것 같습니다.&lt;/p&gt;
+&lt;h2 id=&#34;질문-및-대화방&#34;&gt;질문 및 대화방&lt;/h2&gt;
+&lt;p&gt;궁금한 게 있으시면 &lt;a href=&#34;https://discord.gg/wUgwkYW&#34;&gt;저희 Discord 서버&lt;/a&gt;에 있는 #libplanet-users-kr 채널에
+오셔서 물어보셔도 됩니다. 행사 전에 미리 들어오셔서 물어보셔도 좋고, 행사 끝난 뒤라도
+좋습니다.&lt;/p&gt;</content><author><name>홍민희</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>Unity 2018.2에서 2018.3으로 이주하기</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/unity-2018.3/" title="Unity 2018.2에서 2018.3으로 이주하기"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/unity-2018.3/" hreflang="en" title="Migrating from Unity 2018.2 to 2018.3"/><id>https://snack.planetarium.dev/kor/2019/05/unity-2018.3/</id><published>2019-05-17T00:00:00&#43;00:00</published><updated>2019-05-17T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움에서 게임을 개발하고 있는 현승민입니다. 게임 개발팀에서는 Unity 2018.3에서 추가되거나 개선된 몇 가지 기능들을 사용하기 위해서 해당 버전으로 이주할 준비를 하고 있었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;네스티드-프리팹-nested-prefab&#34;&gt;네스티드 프리팹 (Nested Prefab)&lt;/h2&gt;
+&lt;p&gt;네스티드 프리팹을 통해 워크플로가 얼마나 개선되는가는 이미 여러곳에서 언급되고 있습니다.&lt;/p&gt;
+&lt;dl&gt;
+&lt;dt&gt;동시 편집&lt;/dt&gt;
+&lt;dd&gt;기존에는 한 프리팹을 고치기 전에 먼저 팀에 얘기를 해 뒀어야 했습니다. 그렇지 않으면 각자의 로컬 저장소에서 저마다 고친 프리팹이 업스트림 저장소에 올릴 때 충돌하기 때문입니다. 하지만 새로운 프리팹은 변경점을 별도의 프리팹으로 구조화해서 이러한 충돌을 방지할 수 있는 방법이 생겼습니다. 여전히 동일한 프리팹 간에는 충돌이 발생할 여지가 있지만, 동일한 프리팹의 범주가 작아져서 그 빈도가 크게 줄었습니다.&lt;/dd&gt;
+&lt;dt&gt;다중 구조&lt;/dt&gt;
+&lt;dd&gt;기존에는 하나의 프리팹은 그 하위의 모든 객체를 직접 포함하는 단일 구조인 반면, 새로운 프리팹은 하위의 특정 객체를 또 다른 프리팹으로 분리하고, 그렇게 분리한 프리팹 하위의 객체는 해당 프리팹이 관리하도록 다중 구조로 만들 수 있습니다. 이는 프리팹의 모듈화가 가능해지고 재사용성이 좋아져서 중복도 줄어들게 됩니다.&lt;/dd&gt;
+&lt;dt&gt;변형&lt;/dt&gt;
+&lt;dd&gt;하나의 프리팹을 그대로 상속하지만, 내부 속성을 오버라이드 하거나 컴포넌트 혹은 게임 객체를 추가해서 변형 프리팹을 만들 수 있습니다. 이때 원본 프리팹의 변경이 변형 프리팹에 반영되는 성질이 있어서 프리팹을 관리하는 비용이 줄어듭니다.&lt;/dd&gt;
+&lt;dt&gt;프리팹 모드&lt;/dt&gt;
+&lt;dd&gt;기존에는 프리팹을 제작하거나 수정하기 위해서 신(scene)에 임시 인스턴스를 만들어서 그것을 수정 후 프리팹에 반영한 뒤 임시 인스턴스를 도로 지워주는 과정이 필요했습니다. 각각의 과정에서 손이 많이 가고 실수 할 여지가 있었는데, 새롭게 추가된 프리팹 모드는 이러한 워크플로를 간단하게 만들어 속도와 안정성에서 개선되었습니다. 아직 프리팹 모드에서 간헐적으로 그래픽 요소들이 보이지 않는 버그가 있는데, 이런 때에는 이전 방식으로 수정해야 하는 상황입니다.&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;h2 id=&#34;메모리-프로파일러&#34;&gt;메모리 프로파일러&lt;/h2&gt;
+&lt;p&gt;더욱 강력해진 메모리 프로파일러를 사용해서 문제 해결에 더욱 세세하게 접근할 수 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;2d-애니메이션-v2&#34;&gt;2D 애니메이션 v2&lt;/h2&gt;
+&lt;p&gt;기존의 애니메이션 시스템은 워크플로가 너무 불편해서 새로운 애니메이션과 스파인이라는 외부 툴 중 하나로 이주할 필요가 있었습니다. 결과적으로는 스파인을 사용하게 됐지만, 새로운 애니메이션 또한 큰 개선을 확인할 수 있었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;파티클-시스템&#34;&gt;파티클 시스템&lt;/h2&gt;
+&lt;p&gt;이펙트가 중요한 프로젝트를 진행 중이기 때문에 개선된 파티클 시스템을 통해 전반적인 이펙트 개선을 의도했습니다. 리소스에 아무런 수정도 하지 않았지만, 이펙트가 시각적으로 나아졌다는 아트팀의 피드백이 있을 정도로 확실한 개선점을 확인할 수 있었습니다.&lt;/p&gt;
+&lt;hr /&gt;
+&lt;p&gt;하지만, 이주를 진행하기 하루 전 Unity 2019.1이 정식 출시되는 당황스러운 상황이 발생합니다. 다음 글에서는 Unity 2019.1에서 추가된 기능을 살펴보고 저희가 어떻게 대응했는지를 이야기 하겠습니다.&lt;/p&gt;</content><author><name>현승민</name><uri>https://github.com/boscohyun</uri><email>seungmin@planetariumhq.com</email></author></entry><entry><title>Libplanet 처음 기여하기</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/05/first-contribution/" title="Libplanet 처음 기여하기"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/05/first-contribution/" hreflang="en" title="First Contribution to Libplanet"/><id>https://snack.planetarium.dev/kor/2019/05/first-contribution/</id><published>2019-05-07T00:00:00&#43;00:00</published><updated>2019-05-07T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀 이승훈입니다. 플라네타리움에서 일하는 것이 매력적인 이유 중 하나는 오픈 소스 개발자로 일할 수 있다는 게 아닐까 합니다. 이번 글은 제가 &lt;a href=&#34;https://github.com/planetarium/libplanet&#34;&gt;Libplanet&lt;/a&gt; 프로젝트에 했던 첫 기여에 대한 이야기입니다. Libplanet에 대한 소개는 &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/kor/2019/04/libplanet-0.2/&#34;&gt;Libplanet 0.2 릴리스&lt;/a&gt;&lt;/cite&gt;를 참고해주세요.&lt;/p&gt;
+&lt;h2 id=&#34;왜-libplanet에-기여했을까&#34;&gt;왜 Libplanet에 기여했을까?&lt;/h2&gt;
+&lt;p&gt;지난 1월 플라네타리움은 첫 채용 공고를 오픈함과 동시에 Libplanet 프로젝트의 저장소를 공개했습니다. 매력적인 팀과 프로젝트라고 생각했지만 Libplanet은 유니티와 연동하기 위해 C#으로 개발되고 있었고 저는 주로 파이썬으로 개발해왔기 때문에 선뜻 지원하기가 망설여졌습니다. 그래서 Libplanet이 오픈 소스로 열려있기도 하니 간단한 것이라도 개발에 한 번 참여해보고 결정하기로 마음을 먹었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;c-개발-환경&#34;&gt;C# 개발 환경&lt;/h2&gt;
+&lt;p&gt;저의 경우 이전에는 맥에서 파이썬 위주로 개발을 했습니다. 종종 관심 있는 파이썬 오픈 소스 프로젝트에 기여하곤 했었는데, 파이썬 개발자들이 맥을 많이 사용하기도 하고 오픈 소스에도 친숙한 편이어서 크게 어려움을 느끼지 않고 참여할 수 있었습니다. 그런데 막상 맥에서 C# 개발 환경을 구축하려고 하니 무엇을 설치해야 할지부터 막막했습니다. 다행히 예전과는 다르게 &lt;a href=&#34;https://www.mono-project.com/&#34;&gt;Mono&lt;/a&gt;나 &lt;a href=&#34;https://en.wikipedia.org/wiki/.NET_Core&#34;&gt;.NET Core&lt;/a&gt;와 같은 프로젝트들이 있어서 맥에서도 .NET 개발을 할 수 있고, &lt;a href=&#34;https://code.visualstudio.com/&#34;&gt;VS Code&lt;/a&gt; 등의 에디터들에서도 C# 개발을 하기 위한 플러그인들을 잘 지원하는 편이라 큰 어려움 없이 개발 환경을 설치할 수 있었습니다. 현재는 Libplanet에서도 프로젝트에 기여하려는 개발자들을 위한 &lt;a href=&#34;https://gist.github.com/dahlia/5333634f62509293cd46c0e4ba65b2f5&#34;&gt;개발 환경 설정 방법&lt;/a&gt;을 제공하기 때문에 좀 더 수월하게 환경을 설정할 수 있을 것 같습니다.&lt;/p&gt;
+&lt;h2 id=&#34;어떤-걸-기여할까&#34;&gt;어떤 걸 기여할까?&lt;/h2&gt;
+&lt;p&gt;Libplanet 주소는 &lt;a href=&#34;https://www.ethereum.org/&#34;&gt;이더리움&lt;/a&gt;의 주소형식을 차용하고 있습니다. 이더리움 주소는 &lt;a href=&#34;https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md&#34;&gt;EIP-55&lt;/a&gt;에서 제안된 대소문자를 혼합한 형식의 체크섬을 사용하고 있는데, 이 주소 형식의 예제는 아래와 같습니다.&lt;/p&gt;
+&lt;dl&gt;
+&lt;dt&gt;십육진법&lt;/dt&gt;
+&lt;dd&gt;&lt;code&gt;0xd1220a0cf47c7b9be7a2e6ba89f429762e7b9adb&lt;/code&gt;&lt;/dd&gt;
+&lt;dt&gt;EIP-55 체크섬&lt;/dt&gt;
+&lt;dd&gt;&lt;code&gt;0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb&lt;/code&gt;&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;p&gt;당시에 Libplanet 주소의 문자열 표현은 소문자만으로 구성된 십육진법이었습니다. 따라서 주소의 문자열 표현을 이더리움에서 사용하고 있는 EIP-55 체크섬 형식으로 표현되도록 구현해야 하는 이슈였습니다. 자세한 내용은 해당 &lt;a href=&#34;https://github.com/planetarium/libplanet/issues/33&#34;&gt;이슈&lt;/a&gt;와 &lt;a href=&#34;https://github.com/planetarium/libplanet/pull/43&#34;&gt;PR&lt;/a&gt;을 참고하실 수 있습니다.&lt;/p&gt;
+&lt;p&gt;C#에서의 개발 경험이 거의 없었고 프로젝트 배경지식도 별로 없는 상황이었지만 많은 모듈을 고치지 않아도 되는 간단한 이슈여서 큰 어려움 없이 첫 기여를 진행할 수 있었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;기여를-통해-알게된-것&#34;&gt;기여를 통해 알게된 것&lt;/h2&gt;
+&lt;p&gt;첫 기여를 통해서 알게 된 점은 맥에서의 C# 개발 환경이 생각했던 것보다는 해볼 만하다는 것입니다. C#이 대중화된 멀티 패러다임 프로그래밍 언어를 지향하기 때문에 언어 자체의 어려움은 별로 없었습니다. 맥에서의 .NET 개발 환경도 개발하는 데 큰 무리는 없었지만, 써드파티 라이브러리나 윈도우외의 플랫폼에서 다양한 도구 지원은 아직 미비한 부분이 있었습니다. 하지만 최근 마이크로소프트의 오픈 소스 정책과 멀티 플랫폼 정책에 힘입어 차츰 나아질 것으로 보입니다.&lt;/p&gt;
+&lt;p&gt;또한 플라네타리움 팀의 개발문화도 경험할 수 있었는데, 깃허브에서 모든 이슈가 기록되고 전 세계 오픈 소스 커뮤니티와 소통하기 위해 영어를 사용한다는 점이 인상적이었습니다. 그리고 외부에서 기여를 받고 있기 때문에 코드 리뷰가 필수적으로 진행되고 CI를 통해 테스트뿐 아니라 체인지로그 같은 사항들도 자동화되어 관리되고 있다는 점이 좋았습니다.&lt;/p&gt;
+&lt;h2 id=&#34;마치며&#34;&gt;마치며&lt;/h2&gt;
+&lt;p&gt;저는 첫 기여 후에 플라네타리움팀에 합류한 지 약 한 달 정도 되었고 함께 즐겁게 일하고 있습니다. 플라네타리움에서 함께 Libplanet을 만들 &lt;a href=&#34;https://www.notion.so/8996647777d24491a5dc92d82ba37ec2&#34;&gt;소프트웨어 엔지니어&lt;/a&gt;를 찾고 있으니 관심있는 분들은 &lt;a href=&#34;https://www.notion.so/98129a2f333d4d17b25ce268d72d326c&#34;&gt;채용 정보&lt;/a&gt; 페이지를 확인해주세요.&lt;/p&gt;
+&lt;p&gt;플라네타리움은 Libplanet 기여를 활성화하기 위해 &lt;a href=&#34;https://comuka.nonce.community/&#34;&gt;코드먹는하마&lt;/a&gt;, &lt;a href=&#34;https://sprintseoul.org/&#34;&gt;스프린트서울&lt;/a&gt; 등의 행사에 참여했고 앞으로도 활발하게 참여할 예정입니다. 또한 처음 기여하시는 분들을 위한 &lt;a href=&#34;https://github.com/planetarium/libplanet/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22&#34;&gt;초심자용 이슈&lt;/a&gt;들이 있으니 관심 있는 분들은 참고하시면 좋을 것 같습니다.&lt;/p&gt;
+&lt;p&gt;프로젝트에 궁금한 점이 있으신 분들은 언제든 저희 팀이 상주해 있는 &lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러 오시길 바랍니다!&lt;/p&gt;</content><author><name>이승훈</name><uri>https://github.com/earlbread</uri><email>seunghun@planetariumhq.com</email></author></entry><entry><title>Libplanet 0.2 릴리스</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/04/libplanet-0.2/" title="Libplanet 0.2 릴리스"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/04/libplanet-0.2/" hreflang="en" title="Libplanet 0.2 Released"/><id>https://snack.planetarium.dev/kor/2019/04/libplanet-0.2/</id><published>2019-04-09T00:00:00&#43;00:00</published><updated>2019-04-09T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 지난주 저희 팀은 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;의 두번째 마이너 버전&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;인 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.0&#34;&gt;0.2 버전&lt;/a&gt;을 릴리스했습니다.
+여러 변화가 있었지만, 이 글에서는 몇 가지 주요 기능 추가 및 API 변경에 대해 다루겠습니다.&lt;/p&gt;
+&lt;h2 id=&#34;libplanet-소개&#34;&gt;Libplanet 소개&lt;/h2&gt;
+&lt;p&gt;이에 앞서, 이 블로그에 &lt;a href=&#34;https://libplanet.io/&#34;&gt;Libplanet&lt;/a&gt;을 소개한 적이 없으니 간략히 설명을 하고 넘어가겠습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 분산 &lt;abbr title=&#34;Peer-to-Peer&#34;&gt;P2P&lt;/abbr&gt;로 돌아가는 온라인
+멀티플레이 게임을 만들 때, 그러한 게임들이 매번 구현해야 하는 P2P 통신이나
+데이터 동기화 등의 문제를 푸는 공용 라이브러리입니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 널리 쓰이는 Unity 엔진과 함께 쓰일 것을 염두에 두고 만들어져,
+현재 C# 언어로 개발되고 있습니다. 물론 Unity 엔진을 쓰지 않더라도 .NET 또는 Mono
+플랫폼으로 구현된 게임이라면 쉽게 붙일 수 있도록, &lt;a href=&#34;https://github.com/dotnet/standard/blob/master/docs/versions/netstandard2.0.md&#34;&gt;.NET Standard 2.0&lt;/a&gt;을 타깃하여
+이식성을 확보하고 있습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet의 또 다른 특징은, 프레임워크나 엔진이 아닌 라이브러리라는 점입니다.
+엔진이나 프레임워크는 게임 프로세스의 진입점(&lt;code&gt;Main()&lt;/code&gt; 메서드)과 주도권을 가져간 채
+허용된 부분에 한해서 게임 프로그래머가 스크립팅할 수 있게 하는 데 반해,
+Libplanet은 게임 프로세스를 선점하지 않으며 게임 프로그래머가 명시적으로
+호출한 곳에서만 비간섭적으로 (unobtrusively) 동작합니다.
+덕분에 Unity 같은 기성 게임 엔진과도 무리 없이 함께 쓸 수 있습니다.&lt;/p&gt;
+&lt;p&gt;Libplanet은 &lt;a href=&#34;https://www.nuget.org/packages/Libplanet/&#34;&gt;NuGet&lt;/a&gt;에 올라가 있으며, &lt;a href=&#34;https://docs.libplanet.io/&#34;&gt;API 문서&lt;/a&gt;도 있습니다.&lt;/p&gt;
+&lt;h2 id=&#34;abbr-title-network-address-translation-nat-abbr-우회&#34;&gt;&lt;abbr title=&#34;Network Address Translation&#34;&gt;NAT&lt;/abbr&gt; 우회&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.1.0&#34;&gt;첫 버전&lt;/a&gt;부터도 P2P 통신은 됐지만, 피어는 모두 공인 IP를 갖고 있어야 했습니다.
+즉, 공유기 뒤에 있는 피어와는 통신이 되지 않았기 때문에, 현실적으로는 쓰임이 제한적이었습니다.
+이를 해결하는 것이 급선무였기 때문에 어떻게든 NAT를 우회하는 것이 0.2 로드맵에서 가장 중요했고,
+우선은 조금 비효율적이어도 가장 많은 케이스를 커버하고자
+&lt;abbr title=&#34;Traversal Using Relays around NAT&#34;&gt;TURN&lt;/abbr&gt; 및
+&lt;abbr title=&#34;Session Traversal Utilities for NAT&#34;&gt;STUN&lt;/abbr&gt;이라 불리는
+&lt;a href=&#34;https://tools.ietf.org/html/rfc5766&#34;&gt;RFC 5766&lt;/a&gt; 및 &lt;a href=&#34;https://tools.ietf.org/html/rfc5389&#34;&gt;RFC 5389&lt;/a&gt;를 구현했습니다. 이 과정에서 오픈 소스 C# 구현을 찾지 못해
+스펙에서 필요한 부분들을 모두 직접 구현하는 수고를 같은 팀의 문성원 님이 해주셨습니다.
+이 경험을 풀어서 쓴 &lt;cite&gt;&lt;a href=&#34;https://snack.planetarium.dev/kor/2019/04/nat_traversal_1/&#34;&gt;NAT를 넘어서 가자&lt;/a&gt;&lt;/cite&gt;라는 글도 읽어주시기 바랍니다!&lt;/p&gt;
+&lt;h2 id=&#34;좀-더-게임스러운-트랜잭션&#34;&gt;좀 더 게임스러운 트랜잭션&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html&#34;&gt;&lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;&lt;/a&gt;은 네트워크 구성원 사이에 데이터를 동기화하는 단위입니다.
+Libplanet은 이전 버전까지는 비슷한 문제를 푸는 &lt;a href=&#34;https://bitcoin.org/&#34;&gt;비트코인&lt;/a&gt; 같은 기존 기술을 참고했기 때문에,
+모든 트랜잭션에 발신자와 수신자가 있다는 개념을 그대로 받아들였습니다.
+비트코인은 송금을 다루므로 재화가 이동하기만 하며 복제되어선 안 됩니다.
+따라서 보내는 사람이 있다면 받는 사람이 꼭 있어야 하며,
+모든 트랜잭션에 발신자와 수신자가 있다는 개념이 자연스럽습니다.
+하지만 게임에서는 캐릭터의 이동처럼 수신자 개념이 없는 행동이나,
+광역기처럼 수신자가 둘 이상일 수 있는 행동도 자주 나타납니다.&lt;/p&gt;
+&lt;p&gt;이러한 상황을 더 자연스럽게 다룰 수 있도록,
+이번 버전부터는 &lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;의 &lt;code&gt;Sender&lt;/code&gt;–&lt;code&gt;Recipient&lt;/code&gt; 개념이 사라지고,
+대신 &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_Signer&#34;&gt;&lt;code&gt;Signer&lt;/code&gt;&lt;/a&gt;–&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Tx.Transaction-1.html#Libplanet_Tx_Transaction_1_UpdatedAddresses&#34;&gt;&lt;code&gt;UpdatedAddresses&lt;/code&gt;&lt;/a&gt; 개념이 그 자리를 갈음하게 되었습니다.&lt;/p&gt;
+&lt;h2 id=&#34;새로운-상태-접근-api&#34;&gt;새로운 상태 접근 API&lt;/h2&gt;
+&lt;p&gt;기존에는 모든 &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IAction.html&#34;&gt;&lt;code&gt;IAction&lt;/code&gt;&lt;/a&gt; 구현은 &lt;code&gt;Execute()&lt;/code&gt; 메서드 안에서 접근할 계정의 주소 목록을
+반드시 &lt;code&gt;RequestStates()&lt;/code&gt; 메서드를 통해 제출해야 했습니다.
+&lt;code&gt;Execute()&lt;/code&gt; 메서드에서 미리 제출하지 않은 주소의 상태를 읽거나 쓰려고 하면 유효하지 않은
+액션으로 취급됐습니다.&lt;/p&gt;
+&lt;p&gt;하지만 블록체인을 통해 공개 네트워크에서 공유된 상태들은 어차피 누구나 읽을 수 있기 때문에,
+읽기의 제한은 큰 의미가 없으며 쓰기의 제한만 있으면 된다는 결론에 이르게 됐습니다.&lt;/p&gt;
+&lt;p&gt;또한, 기존에는 접근할 계정에 대한 정보가 &lt;code&gt;RequestStates()&lt;/code&gt; 메서드와 &lt;code&gt;Execute()&lt;/code&gt; 메서드
+양쪽 코드에 중복되므로 버그가 나기 쉬운 구조였고, 조심한다고 하더라도 양쪽을 함께 고쳐야 하는
+API도 매우 불편했습니다.&lt;/p&gt;
+&lt;p&gt;이러한 문제들을 두루 풀고자, 이번 버전부터는 &lt;code&gt;IAction&lt;/code&gt; 인터페이스의 상태 접근 API가
+크게 개선됐습니다. &lt;code&gt;RequestStates()&lt;/code&gt; 메서드는 아예 사라졌으며,
+&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IAction.html#Libplanet_Action_IAction_Execute_Libplanet_Action_IActionContext_&#34;&gt;&lt;code&gt;IAction.Execute()&lt;/code&gt;&lt;/a&gt;의 인자로 들어온 &lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IActionContext.html&#34;&gt;&lt;code&gt;IActionContext&lt;/code&gt;&lt;/a&gt; 객체의
+&lt;a href=&#34;https://docs.libplanet.io/0.2.1/api/Libplanet.Action.IActionContext.html#Libplanet_Action_IActionContext_PreviousStates&#34;&gt;&lt;code&gt;PreviousStates&lt;/code&gt;&lt;/a&gt;가 일종의 &amp;ldquo;변경 기록&amp;rdquo; API를 제공하게 되었습니다.
+이 변경 기록을 &lt;code&gt;Execute()&lt;/code&gt; 메서드 안에서 쌓아 나간 뒤,
+최종적으로 그 변경 기록을 반환하면 상태가 실제로 갱신됩니다.&lt;/p&gt;
+&lt;p&gt;또한, 트랜잭션이 만들어질 때 액션이 &amp;ldquo;리허설 모드&amp;rdquo;로 실행되는데,
+이 리허설을 통해 &lt;code&gt;Execute()&lt;/code&gt; 메서드가 상태를 갱신하려고 하는 주소의 목록을 얻어서
+이 목록도 함께 트랜잭션에 포함되어 서명됩니다.
+서명된 트랜잭션을 다른 노드가 받았을 때는, 트랜잭션을 서명한 당사자가 리허설을 통해
+구한 주소 목록 이외의 계정 상태를 바꾸는 것이 차단됩니다.&lt;/p&gt;
+&lt;h2 id=&#34;액션의-서브타입-다형성-분리&#34;&gt;액션의 서브타입 다형성 분리&lt;/h2&gt;
+&lt;p&gt;이전 버전까지는 게임마다 &lt;code&gt;IAction&lt;/code&gt;을 구현한 추상 클래스를 정의하고,
+이를 상속하는 여러 구체 클래스를 두는 것이 Libplanet이 상정한 유일한 이용법이었습니다.
+그러나 게임에 따라 게임 내 액션의 종류를 &lt;code&gt;IAction&lt;/code&gt; 수준에서 나누는 것보다,
+&lt;code&gt;IAction&lt;/code&gt;을 단 하나의 클래스로 구현하고 액션에 들어가는 데이터를 통해 동작을 세분화하는 방식이
+더 적합한 경우도 있습니다. 또, 액션의 타입에 따라 동적으로 디스패치하는 방식은 내부적으로
+&lt;a href=&#34;https://docs.microsoft.com/ko-kr/dotnet/framework/reflection-and-codedom/reflection&#34;&gt;.NET의 리플렉션&lt;/a&gt;을 써서 구현했기 때문에 이러한 것이 곤란한 프로젝트도 있을 수 있습니다.&lt;/p&gt;
+&lt;p&gt;그래서 이번 버전부터는 &lt;code&gt;Transaction&amp;lt;T&amp;gt;&lt;/code&gt;의 &lt;code&gt;T&lt;/code&gt;는 &lt;code&gt;IAction&lt;/code&gt;을 구현할 뿐만 아니라 구체 클래스만을
+받아들이게 됐습니다. 추상 클래스나 인터페이스는 &lt;code&gt;IAction&lt;/code&gt;을 구현했다고 해도 받아들여지지 않으며,
+구체 클래스 역시 서브타입의 존재는 완전히 무시되게 됩니다.&lt;/p&gt;
+&lt;p&gt;대신, 기존처럼 서브타입 다형성을 통해 액션의 동작을 세분화하고 싶다면,
+&lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.1&#34;&gt;&lt;code&gt;PolymorphicAction&amp;lt;T&amp;gt;&lt;/code&gt;&lt;/a&gt;라는 새로운 액션 데코레이터 구현을 쓰면 됩니다.
+예를 들어 기존의 타입이 &lt;code&gt;Transaction&amp;lt;AbstractAction&amp;gt;&lt;/code&gt;이었다면,
+&lt;code&gt;Transaction&amp;lt;PolymorphicAction&amp;lt;AbstractAction&amp;gt;&amp;gt;&lt;/code&gt; 타입으로 고쳐서 쓰면
+대부분의 경우 기존대로 동작하게 됩니다.
+물론, &lt;code&gt;PolymorphicAction&amp;lt;T&amp;gt;&lt;/code&gt; 클래스는 내부적으로 .NET 리플렉션을 씁니다.&lt;/p&gt;
+&lt;h2 id=&#34;그-외&#34;&gt;그 외&lt;/h2&gt;
+&lt;p&gt;그밖에도 여러 변화가 있었고, 자세한 것은 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.0&#34;&gt;전체 변경 내역&lt;/a&gt;에서 확인할 수 있습니다.&lt;/p&gt;
+&lt;p&gt;참고로 &lt;em&gt;0.2.0&lt;/em&gt; 버전이 릴리스된 뒤 이틀 뒤에 몇 가지 문제를 해결한 &lt;a href=&#34;https://github.com/planetarium/libplanet/releases/tag/0.2.1&#34;&gt;&lt;em&gt;0.2.1&lt;/em&gt;&lt;/a&gt;이 릴리스되어,
+(2019년 4월 9일) 현재 최신 버전은 &lt;em&gt;0.2.1&lt;/em&gt;입니다.&lt;/p&gt;
+&lt;p&gt;호기심이 생기신 분들은 설치해서 이용해 보시고, 궁금한 점이 있으시다면 저희 팀이 상주해 있는
+&lt;a href=&#34;https://discord.gg/ue9fgc3&#34;&gt;디스코드 대화방&lt;/a&gt;에 놀러오세요!&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+&lt;hr /&gt;
+&lt;ol&gt;
+&lt;li id=&#34;fn:1&#34;&gt;저희는 아직 메이저 릴리스를 한 적이 없습니다.
+&lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:1&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;</content><author><name>홍민희</name><uri>https://github.com/dahlia</uri><email>hong.minhee@planetariumhq.com</email></author></entry><entry><title>NAT를 넘어서 가자</title><link rel="alternate" href="https://snack.planetarium.dev/kor/2019/04/nat_traversal_1/" title="NAT를 넘어서 가자"/><link rel="alternate" href="https://snack.planetarium.dev/eng/2019/04/nat_traversal_1/" hreflang="en" title="Moving Beyond NAT"/><id>https://snack.planetarium.dev/kor/2019/04/nat_traversal_1/</id><published>2019-04-04T00:00:00&#43;00:00</published><updated>2019-04-04T00:00:00&#43;00:00</updated><content type="html">
+&lt;p&gt;안녕하세요. 플라네타리움 개발팀 문성원입니다. 오늘은 &lt;a href=&#34;https://en.wikipedia.org/wiki/NAT_traversal&#34;&gt;NAT 통과 기법&lt;/a&gt;이라고 알려진 방법에 대해서 이야기를 해볼까 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;뭐가-문젠가요&#34;&gt;뭐가 문젠가요?&lt;/h2&gt;
+&lt;p&gt;게임 서버에서 스마트폰에 이르기까지 현대 인터넷에 참여하는 모든 단말은 &lt;a href=&#34;https://en.wikipedia.org/wiki/IP_address&#34;&gt;IP 주소&lt;/a&gt;를 가지고 있습니다. 이는 한 단말이 다른 단말에 연결하여 메시지를 주고받기 위함인데요.&lt;/p&gt;
+&lt;p&gt;근본적인 문제는 이러한 IP 주소의 수량이 한정되어 있다는 것입니다. 널리 쓰이는 &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv4&#34;&gt;IPv4&lt;/a&gt;의 경우엔 32비트로 구성되어 단순 계산으론 2&lt;sup&gt;32&lt;/sup&gt;개(약 40억개 이상)를 할당할 수 있습니다. (물론 이걸 전부 사용하는 것은 아닙니다.) 얼핏 보면 충분해 보이기도 하지만, 1인당 1개 이상의 기기를 운용하기에는 턱없이 모자라지요. 실제로 2011년 이후로 &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv4_address_exhaustion&#34;&gt;IPv4 주소가 모두 소진&lt;/a&gt;되어 신규 주소도 할당이 되지 않는 상태입니다.&lt;/p&gt;
+&lt;p&gt;이 문제를 해결하기 위해, 주소 공간을 128비트로 크게 늘린 &lt;a href=&#34;https://en.wikipedia.org/wiki/IPv6&#34;&gt;IPv6&lt;/a&gt;가 제안되었으나, IPv4 주소 고갈에 비해 보급이 더뎠습니다. 해서 많은 네트워크 담당자들은 네트워크를 분리하여 복수의 사설 IP를 두고, 인터넷엔 그러한 주소를 변환하여 하나의 공인 IP로만 접속하게 하는 방식을 택했습니다. 흔히 이야기하는 &lt;a href=&#34;https://en.wikipedia.org/wiki/Network_address_translation&#34;&gt;NAT(Network Address Translation)&lt;/a&gt;는 이러한 작업을 이르는 말인 동시에, 경우에 따라선 해당 작업을 처리하는 장치(일반적으론 &lt;a href=&#34;https://en.wikipedia.org/wiki/Router_(computing)&#34;&gt;라우터&lt;/a&gt;)를 일컫기도 합니다.&lt;/p&gt;
+&lt;p&gt;서버–클라이언트 모델에서 이런 NAT를 통한 인터넷 접속은 크게 문제가 되지 않습니다. 서버가 공인 IP를 가지고 있다면, 클라이언트는 NAT를 거치건 거치지 않건 접속할 수 있기 때문이죠. 하지만 만약 NAT 안쪽에 있는 단말에 접속해야 한다면 문제가 발생합니다. NAT 안쪽의 사설 네트워크의 IP로는 NAT 바깥의 단말들이 접속할 수 없기 때문이죠. 이러한 상황을 해결하기 위한 기법들을 NAT 통과 기법이라고 합니다.&lt;/p&gt;
+&lt;h2 id=&#34;그래서-뭘-써야-하나요&#34;&gt;그래서 뭘 써야 하나요?&lt;/h2&gt;
+&lt;h3 id=&#34;upnp-igdp&#34;&gt;UPnP (IGDP)&lt;/h3&gt;
+&lt;p&gt;NAT를 통과하는 기법은 크게 NAT의 도움을 받느냐 그렇지 않느냐로 구분할 수 있습니다. 장비들의 연결성이 중시되는 현대 인터넷의 요구 사항에 맞춰서 제안된 &lt;a href=&#34;https://en.wikipedia.org/wiki/Universal_Plug_and_Play&#34;&gt;UPnP&lt;/a&gt;와 같은 프로토콜은, NAT 통과 문제를 해결하는 기능(예: &lt;a href=&#34;https://en.wikipedia.org/wiki/Internet_Gateway_Device_Protocol&#34;&gt;Internet Gateway Device Protocol&lt;/a&gt;)을 지원하기도 합니다. 다만, 이는 어디까지나 해당 프로토콜을 지원하는 장비에만 적용할 수 있는 해결책입니다. 어떠한 장비들은 UPnP를 선택적으로 지원하거나, 아예 지원하지 않을 수도 있습니다.&lt;/p&gt;
+&lt;h3 id=&#34;relay-turn&#34;&gt;Relay (TURN)&lt;/h3&gt;
+&lt;p&gt;다른 한 가지 방법은 NAT의 도움을 받지 않는 방법입니다. 다시 이야기하면, 사설 IP ↔ 공인 IP 체계를 유지한 상태에서 외부에서 접속이 가능하게 한다는 것이기도 합니다. 어떻게 할 수 있을까요? 이쯤에서 우리가 할 수 있는 것과 할 수 없는 일을 정리하면 아래와 같습니다.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;공인 IP를 가진 단말은
+&lt;ul&gt;
+&lt;li&gt;다른 단말의 연결을 처리할 수 있습니다.&lt;/li&gt;
+&lt;li&gt;다른 공인 IP를 가진 단말에 연결할 수 있습니다.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;사설 IP를 가진 단말은
+&lt;ul&gt;
+&lt;li&gt;다른 단말의 연결을 처리할 수 없습니다.
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;아주 엄밀하게 말하면, 같은 네트워크 안에선 가능합니다. 하지만 이야기를 단순하게 하기 위해 이 경우는 제외하겠습니다. :)&lt;/em&gt;&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;li&gt;다른 공인 IP를 가진 단말에 연결할 수 있습니다.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;즉 별도의 공인 IP를 가진 서버(S)를 가정하고, 이 서버가 (본래라면 NAT 뒤의 단말이 처리해야 할) 연결을 대신 처리하면서 내용을 NAT 뒤의 단말에 전달(릴레이)해주면 NAT의 동작에 의존하지 않고 확실하게 연결을 처리할 수 있습니다. 이를 릴레이 기법이라고 하며, &lt;a href=&#34;https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT&#34;&gt;TURN&lt;/a&gt;이라는 표준으로 정의되어 있습니다.&lt;/p&gt;
+&lt;h3 id=&#34;홀-펀칭&#34;&gt;홀 펀칭&lt;/h3&gt;
+&lt;p&gt;NAT의 직접적인 도움을 받지 않는 다른 방법 중 한 가지는 &lt;a href=&#34;https://en.wikipedia.org/wiki/Hole_punching_(networking)&#34;&gt;홀 펀칭(Hole Punching)&lt;/a&gt;이라 불리는 기법입니다. (흔히 &lt;a href=&#34;https://en.wikipedia.org/wiki/UDP_hole_punching&#34;&gt;UDP 홀펀칭&lt;/a&gt;으로 널리 알려졌지만, &lt;a href=&#34;https://en.wikipedia.org/wiki/TCP_hole_punching&#34;&gt;TCP에 대해서도 적용할 수 있습니다.&lt;/a&gt;)&lt;/p&gt;
+&lt;p&gt;홀 펀칭 역시 위의 릴레이와 마찬가지로 중계 서버(S)를 가정합니다. 다만 릴레이와 다른 점은, 중계 서버가 직접 통신을 전부 중계하는 것이 아니라, 접속을 처리할 단말(A)이 속한 NAT의 공인 IP와 포트 정보만 접속을 원하는 단말(B)에 넘겨서, B가 A에 접속할 때 A의 사설 IP가 아닌 NAT의 공인 IP와 포트로 접속을 시도하는 방식입니다.&lt;/p&gt;
+&lt;p&gt;홀 펀칭은 UPnP처럼 NAT에 특정 프로토콜의 구현을 요구하는 것은 아니지만, NAT의 포트 매핑 방식을 이용하는 기법이기 때문에, 동작 모드에 따라, 보다 정확하게 이야기하자면, 목적지 독립적 매핑(Endpoint Independent Mapping)으로 동작하는 NAT에서만 적용 가능합니다.&lt;/p&gt;
+&lt;h2 id=&#34;다음-이야기들&#34;&gt;다음 이야기들&lt;/h2&gt;
+&lt;p&gt;위에서 살펴 본 NAT 통과 기법들은 실현 가능한 상황이나 장단점이 각기 다릅니다. 해서 현업에서는 다양한 방법을 복합적으로 사용합니다. 다음 시간에는 그 중에서 가장 비싸지만 가장 안정적으로 통신을 보장할 수 있는 TURN을 이용한 릴레이 기법에 대해서 더 자세히 살펴보도록 하겠습니다.&lt;/p&gt;</content><author><name>문성원</name><uri>https://github.com/longfin</uri><email>swen@planetariumhq.com</email></author></entry></feed>
